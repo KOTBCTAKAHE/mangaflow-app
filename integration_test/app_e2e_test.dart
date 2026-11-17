@@ -133,7 +133,6 @@ void main() {
     await tester.enterText(find.widgetWithText(TextFormField, 'Email'), '$user@example.com');
     await tester.enterText(find.widgetWithText(TextFormField, 'Имя пользователя'), user);
     await tester.enterText(find.widgetWithText(TextFormField, 'Пароль'), password);
-    await tester.testTextInput.receiveAction(TextInputAction.done);
     await settle(tester, 300);
     await tester.tap(find.text('Зарегистрироваться'));
     await pumpUntil(tester, find.text(user), timeout: const Duration(seconds: 30));
