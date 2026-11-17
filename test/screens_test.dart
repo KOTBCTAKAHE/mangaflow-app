@@ -43,7 +43,8 @@ void main() {
     expect(find.text('Недавние запросы'), findsOneWidget);
     expect(find.text('Жанры'), findsOneWidget);
     expect(find.text('наруто'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Каталоги источников'), 200);
+    await tester.scrollUntilVisible(find.text('Каталоги источников'), 200,
+        scrollable: find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first);
     expect(tester.takeException(), isNull);
   });
 
@@ -55,13 +56,15 @@ void main() {
     expect(find.text('Жанры'), findsOneWidget);
   });
 
-  testWidgets('Library: empty and with entries', (tester) async {
+  testWidgets('Library: empty', (tester) async {
     await pump(tester, const LibraryScreen(), [
       libraryEntriesProvider.overrideWith((_) async => const <LibraryEntry>[]),
       collectionsProvider.overrideWith((_) async => const <Collection>[]),
     ]);
     expect(find.text('Библиотека пуста'), findsOneWidget);
+  });
 
+  testWidgets('Library: with entries and a collection', (tester) async {
     await pump(tester, const LibraryScreen(), [
       libraryEntriesProvider.overrideWith((_) async => [
             LibraryEntry(sourceId: 's', mangaId: 'm', title: 'Берсерк', addedAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026),
