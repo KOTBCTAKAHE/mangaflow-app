@@ -11,13 +11,16 @@ class AppDatabase {
 
   static const version = 1;
 
-  static Future<AppDatabase> open({String? path, DatabaseFactory? factory}) async {
+  /// [singleInstance] must be false for background isolates: sqflite shares one
+  /// native handle per path, so closing it there would close the app's database too.
+  static Future<AppDatabase> open({String? path, DatabaseFactory? factory, bool singleInstance = true}) async {
     final f = factory ?? databaseFactory;
     final dbPath = path ?? p.join(await f.getDatabasesPath(), 'mangaflow.db');
     final db = await f.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
         version: version,
+        singleInstance: singleInstance,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys = ON');
         },

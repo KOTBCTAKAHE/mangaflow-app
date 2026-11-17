@@ -48,7 +48,9 @@ class BackgroundUpdates {
 
   /// Signed-in users: pull the server-side update feed.
   /// Guests: compare chapter counts of library titles via the catalog API.
-  static Future<void> run() async {
+  /// [db]: pass the app's open database when called from the foreground; the
+  /// background isolate opens (and closes) its own non-shared connection.
+  static Future<void> run({AppDatabase? db}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('app_settings_v1');
     final settings = raw == null
@@ -56,14 +58,15 @@ class BackgroundUpdates {
         : AppSettings.fromJson((jsonDecode(raw) as Map).cast(), fallbackUrl: AppConfig.defaultApiBaseUrl);
     if (!settings.notifyUpdates) return;
 
-    final db = await AppDatabase.open();
+    final ownDb = db == null;
+    final database = db ?? await AppDatabase.open(singleInstance: false);
     try {
       final client = ApiClient(baseUrl: settings.apiBaseUrl);
       final auth = AuthController(client, SecureStore());
       await auth.restore();
-      final updatesDao = UpdatesDao(db.db);
-      final libraryDao = LibraryDao(db.db);
-      final kv = KvDao(db.db);
+      final updatesDao = UpdatesDao(database.db);
+      final libraryDao = LibraryDao(database.db);
+      final kv = KvDao(database.db);
       List<ChapterUpdate> fresh;
 
       if (auth.isSignedIn) {
@@ -75,7 +78,7 @@ class BackgroundUpdates {
           await kv.set('since_updates', newest.toIso8601String());
         }
       } else {
-        fresh = await _guestCheck(CatalogApi(client), libraryDao, updatesDao, TitleCacheDao(db.db));
+        fresh = await _guestCheck(CatalogApi(client), libraryDao, updatesDao, TitleCacheDao(database.db));
       }
       for (final u in fresh) {
         final entry = await libraryDao.get(u.sourceId, u.mangaId);
@@ -83,7 +86,7 @@ class BackgroundUpdates {
       }
       await ChapterNotifier.instance.showNewChapters(fresh);
     } finally {
-      await db.close();
+      if (ownDb) await database.close();
     }
   }
 

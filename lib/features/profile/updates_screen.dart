@@ -35,7 +35,7 @@ class _UpdatesScreenState extends ConsumerState<UpdatesScreen> {
         await Future<void>.delayed(const Duration(seconds: 4));
         await ref.read(syncEngineProvider).sync();
       } else {
-        await BackgroundUpdates.run();
+        await BackgroundUpdates.run(db: ref.read(databaseProvider));
       }
       ref.read(dataVersionProvider.notifier).state++;
     } on ApiException catch (e) {
