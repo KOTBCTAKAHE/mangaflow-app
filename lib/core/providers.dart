@@ -201,4 +201,8 @@ final syncStatusProvider = StreamProvider<SyncStatus>((ref) {
   return controller.stream;
 });
 
-final downloadsChangesProvider = StreamProvider<void>((ref) => ref.watch(downloadManagerProvider).changes);
+/// Emits an increasing counter on every download change (distinct values → listeners always rebuild).
+final downloadsChangesProvider = StreamProvider<int>((ref) {
+  var n = 0;
+  return ref.watch(downloadManagerProvider).changes.map((_) => ++n);
+});
