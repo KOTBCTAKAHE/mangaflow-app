@@ -317,6 +317,7 @@ class DownloadEngine {
         if (_stop) throw _Aborted();
         final st = await _status(sourceId, chapterId);
         if (st != 'downloading') throw _Aborted();
+        if (queue.isEmpty) break; // another worker took the last page during the await
         final page = queue.removeAt(0);
         try {
           final wrote = await _fetchPageWithRetry(page, dir.path);
