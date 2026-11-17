@@ -1,0 +1,28 @@
+name: Bootstrap platform folders
+
+# One-off helper: generates android/ and ios/ with `flutter create`, applies
+# tool/patch_android.py and commits them, so local builds need no extra steps.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: |
+          flutter create --org com.mangaflow --project-name mangaflow --platforms android,ios .
+          python3 tool/patch_android.py
+          rm -rf test/widget_test.dart.orig
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android ios
+          git diff --cached --quiet && echo "nothing to commit" && exit 0
+          git commit -m "Add generated Android/iOS platform folders (flutter create + tool/patch_android.py)"
+          git push
