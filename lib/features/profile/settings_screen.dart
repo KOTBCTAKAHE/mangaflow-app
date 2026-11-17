@@ -143,7 +143,7 @@ class SettingsScreen extends ConsumerWidget {
           onChanged: (v) async {
             await ctrl.update((x) => x.copyWith(notifyUpdates: v));
             if (v) {
-              await Notifier.instance.requestPermission();
+              await ChapterNotifier.instance.requestPermission();
               await BackgroundUpdates.register().catchError((Object _) {});
             } else {
               await BackgroundUpdates.cancel().catchError((Object _) {});

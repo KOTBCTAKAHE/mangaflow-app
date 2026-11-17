@@ -38,7 +38,7 @@ Future<void> main() async {
   await container.read(authProvider.notifier).restore();
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    unawaited(Notifier.instance.init());
+    unawaited(ChapterNotifier.instance.init());
     if (container.read(settingsProvider).notifyUpdates) {
       unawaited(BackgroundUpdates.register().catchError((Object _) {}));
     }

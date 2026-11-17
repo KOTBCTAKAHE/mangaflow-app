@@ -14,6 +14,9 @@ class SettingsController extends StateNotifier<AppSettings> {
   final SharedPreferences _prefs;
   static const _key = 'app_settings_v1';
 
+  /// Read access for non-widget collaborators (sync engine, backup).
+  AppSettings get current => state;
+
   static AppSettings _load(SharedPreferences prefs) {
     final raw = prefs.getString(_key);
     if (raw == null) {

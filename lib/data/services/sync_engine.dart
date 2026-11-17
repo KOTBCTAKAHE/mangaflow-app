@@ -110,7 +110,7 @@ class SyncEngine {
   Future<DateTime?> _since(String key) async => DateTime.tryParse(await kv.get(key) ?? '');
 
   Future<void> _pushSettings() async {
-    final s = settings.state;
+    final s = settings.current;
     final remote = await api.getSettings();
     if (remote.updatedAt.isAfter(s.updatedAt)) {
       await settings.applyRemote(remote.settings, remote.updatedAt);

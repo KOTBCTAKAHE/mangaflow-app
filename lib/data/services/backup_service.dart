@@ -38,7 +38,7 @@ class BackupService {
       'format': AppConfig.backupFormat,
       'version': AppConfig.backupVersion,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
-      'settings': settings.state.toSyncJson(),
+      'settings': settings.current.toSyncJson(),
       'library': [for (final e in lib) e.toApi()..remove('deleted')],
       'collections': [
         for (final c in cols)
@@ -59,13 +59,13 @@ class BackupService {
     final data = await build();
     final dir = await getTemporaryDirectory();
     final ts = DateTime.now();
-    final name = 'mangaflow-backup-${ts.year}${_2(ts.month)}${_2(ts.day)}-${_2(ts.hour)}${_2(ts.minute)}.json';
+    final name = 'mangaflow-backup-${ts.year}${_pad(ts.month)}${_pad(ts.day)}-${_pad(ts.hour)}${_pad(ts.minute)}.json';
     final file = File('${dir.path}/$name');
     await file.writeAsString(const JsonEncoder.withIndent(' ').convert(data));
     return file;
   }
 
-  static String _2(int v) => v.toString().padLeft(2, '0');
+  static String _pad(int v) => v.toString().padLeft(2, '0');
 
   /// Merges a backup into local data (last-write-wins, never deletes).
   Future<({int library, int progress, int history})> importJson(String raw) async {

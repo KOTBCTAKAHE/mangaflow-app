@@ -121,7 +121,7 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
     isSignedIn: () => ref.read(authProvider.notifier).isSignedIn,
     onPulled: () => _bump(ref),
     onNewUpdates: (fresh) {
-      if (ref.read(settingsProvider).notifyUpdates) unawaited(Notifier.instance.showNewChapters(fresh));
+      if (ref.read(settingsProvider).notifyUpdates) unawaited(ChapterNotifier.instance.showNewChapters(fresh));
     },
   );
   ref.onDispose(engine.dispose);

@@ -47,12 +47,12 @@ class ProfileScreen extends ConsumerWidget {
         ),
         if (stats != null) _StatsStrip(stats: stats),
         const SizedBox(height: MfSpace.md),
-        _Link(icon: Icons.insights_outlined, title: 'Статистика', subtitle: 'Время чтения, серии, календарь', route: '/stats'),
-        _Link(icon: Icons.history_rounded, title: 'История чтения', route: '/history'),
-        _Link(icon: Icons.notifications_none_rounded, title: 'Новые главы', route: '/updates'),
-        _Link(icon: Icons.download_for_offline_outlined, title: 'Загрузки', subtitle: 'Главы для чтения офлайн', route: '/downloads'),
-        _Link(icon: Icons.public_rounded, title: 'Источники', subtitle: 'Включение, состояние, 18+', route: '/sources'),
-        _Link(icon: Icons.settings_outlined, title: 'Настройки', subtitle: 'Сервер, тема, читалка, резервные копии', route: '/settings'),
+        const _Link(icon: Icons.insights_outlined, title: 'Статистика', subtitle: 'Время чтения, серии, календарь', route: '/stats'),
+        const _Link(icon: Icons.history_rounded, title: 'История чтения', route: '/history'),
+        const _Link(icon: Icons.notifications_none_rounded, title: 'Новые главы', route: '/updates'),
+        const _Link(icon: Icons.download_for_offline_outlined, title: 'Загрузки', subtitle: 'Главы для чтения офлайн', route: '/downloads'),
+        const _Link(icon: Icons.public_rounded, title: 'Источники', subtitle: 'Включение, состояние, 18+', route: '/sources'),
+        const _Link(icon: Icons.settings_outlined, title: 'Настройки', subtitle: 'Сервер, тема, читалка, резервные копии', route: '/settings'),
       ]),
     );
   }

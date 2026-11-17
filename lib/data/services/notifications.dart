@@ -3,9 +3,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/reading.dart';
 
 /// Local notifications for new chapters.
-class Notifier {
-  Notifier._();
-  static final instance = Notifier._();
+class ChapterNotifier {
+  ChapterNotifier._();
+  static final instance = ChapterNotifier._();
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;

@@ -81,7 +81,7 @@ class BackgroundUpdates {
         final entry = await libraryDao.get(u.sourceId, u.mangaId);
         if (entry != null) await libraryDao.setUnread(u.sourceId, u.mangaId, entry.unreadUpdates + 1);
       }
-      await Notifier.instance.showNewChapters(fresh);
+      await ChapterNotifier.instance.showNewChapters(fresh);
     } finally {
       await db.close();
     }
