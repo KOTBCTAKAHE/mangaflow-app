@@ -82,3 +82,7 @@ flutter test
 Каталоги берутся через backend, который переносит парсеры из [redcatpet/mangayomi-ru-sources](https://github.com/redcatpet/mangayomi-ru-sources) (Apache-2.0). Многие сайты ограничивают доступ не из России; состояние каждого источника видно в разделе *Профиль → Источники*. Приложение не обходит авторизацию и платный доступ на сайтах.
 
 Шрифт Manrope распространяется по SIL Open Font License (`assets/fonts/Manrope-OFL.txt`).
+
+## Релизы
+
+Чтобы выпустить новую версию, увеличьте `version:` в `pubspec.yaml` (например `1.0.1+2`) и запушьте в `main`. CI соберёт APK и опубликует релиз `v1.0.1` в **Releases**.
