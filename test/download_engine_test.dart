@@ -191,7 +191,7 @@ void main() {
     http.on('http://img/c2/0', [(_) => ok(png(200))]);
     await engine().run(budget: const Duration(seconds: 30));
     final rows = {for (final r in await db.db.query('downloads')) r['chapter_id']: r};
-    expect(rows['c2']!['status'], 'completed');
+    expect(rows['c2']!['status'], 'completed', reason: '${rows['c2']}');
     expect(rows['c1']!['status'], 'retrying');
     expect(rows['c1']!['attempts'], 1);
   });
