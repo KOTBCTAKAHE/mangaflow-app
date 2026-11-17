@@ -9,7 +9,7 @@ class AppDatabase {
   AppDatabase._(this.db);
   final Database db;
 
-  static const version = 1;
+  static const version = 2;
 
   /// [singleInstance] must be false for background isolates: sqflite shares one
   /// native handle per path, so closing it there would close the app's database too.
@@ -23,6 +23,10 @@ class AppDatabase {
         singleInstance: singleInstance,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys = ON');
+          // Several isolates (UI, download service, WorkManager) share the file:
+          // WAL + busy timeout avoid "database is locked" under concurrent writes.
+          await db.rawQuery('PRAGMA busy_timeout = 8000');
+          if (dbPath != inMemoryDatabasePath) await db.rawQuery('PRAGMA journal_mode = WAL');
         },
         onCreate: (db, v) async {
           final batch = db.batch();
@@ -30,10 +34,9 @@ class AppDatabase {
             batch.execute(stmt);
           }
           await batch.commit(noResult: true);
+          await _migrate(db, 1, v);
         },
-        onUpgrade: (db, from, to) async {
-          // Future migrations go here: if (from < 2) { ... }
-        },
+        onUpgrade: _migrate,
       ),
     );
     return AppDatabase._(db);
@@ -47,6 +50,15 @@ class AppDatabase {
       batch.delete(t);
     }
     await batch.commit(noResult: true);
+  }
+
+  static Future<void> _migrate(Database db, int from, int to) async {
+    if (from < 2) {
+      // resilient downloads: retry bookkeeping
+      await db.execute('ALTER TABLE downloads ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE downloads ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0');
+      await db.execute('CREATE INDEX ix_downloads_queue ON downloads(status, next_attempt_at)');
+    }
   }
 
   static const _schemaV1 = <String>[

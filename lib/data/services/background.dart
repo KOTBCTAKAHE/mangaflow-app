@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../../core/config.dart';
@@ -10,6 +11,8 @@ import '../../core/storage/database.dart';
 import '../../core/storage/secure_store.dart';
 import '../local/daos.dart';
 import '../models/reading.dart';
+import 'download_manager.dart' show kDownloadsWorkTask;
+import 'downloads/download_runtime.dart';
 import '../models/settings.dart';
 import '../remote/catalog_api.dart';
 import '../remote/user_api.dart';
@@ -24,6 +27,10 @@ void backgroundDispatcher() {
   Workmanager().executeTask((task, _) async {
     WidgetsFlutterBinding.ensureInitialized();
     try {
+      if (task == kDownloadsWorkTask) {
+        await _resumeDownloads();
+        return true;
+      }
       await BackgroundUpdates.run();
       return true;
     } catch (_) {
@@ -32,9 +39,42 @@ void backgroundDispatcher() {
   });
 }
 
+/// Safety net (every ~15 min): if the foreground service was killed, keep the
+/// queue moving — first try to restart the service, else work for ~8 minutes here.
+Future<void> _resumeDownloads() async {
+  final db = await AppDatabase.open(singleInstance: false);
+  try {
+    final pending = Sqflite.firstIntValue(await db.db
+            .rawQuery("SELECT COUNT(*) FROM downloads WHERE status IN ('queued','retrying','downloading')")) ??
+        0;
+    if (pending == 0) return;
+    if (await DownloadService.isRunning()) return;
+    final settings = PrefsSettings(await SharedPreferences.getInstance());
+    try {
+      final engine = buildEngine(db: db.db, owner: 'workmanager', settings: () => settings.value);
+      await engine.run(budget: const Duration(minutes: 8));
+    } finally {
+      settings.dispose();
+    }
+  } finally {
+    await db.close();
+  }
+}
+
 class BackgroundUpdates {
+  static bool _initialized = false;
+
+  /// Must run once at startup (both update checks and the download safety net use it).
+  static Future<void> initialize() async {
+    if (_initialized) return;
+    try {
+      await Workmanager().initialize(backgroundDispatcher);
+      _initialized = true;
+    } catch (_) {}
+  }
+
   static Future<void> register() async {
-    await Workmanager().initialize(backgroundDispatcher);
+    await initialize();
     await Workmanager().registerPeriodicTask(
       kUpdateTask,
       kUpdateTask,

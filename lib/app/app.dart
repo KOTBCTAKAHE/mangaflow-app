@@ -45,7 +45,10 @@ class _MangaFlowAppState extends ConsumerState<MangaFlowApp> with WidgetsBinding
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(ref.read(syncEngineProvider).sync());
+    if (state == AppLifecycleState.resumed) {
+      unawaited(ref.read(syncEngineProvider).sync());
+      unawaited(ref.read(downloadManagerProvider).kick());
+    }
     if (state == AppLifecycleState.paused) unawaited(ref.read(syncEngineProvider).sync());
   }
 

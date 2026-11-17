@@ -17,6 +17,7 @@ import '../../data/models/reading.dart';
 import '../../data/services/download_manager.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
+import '../downloads_support.dart';
 import '../library/library_actions.dart';
 import 'title_providers.dart';
 
@@ -145,8 +146,7 @@ class _Body extends ConsumerWidget {
                     await reading.markChapters(m, data.chapters, read: false);
                   case 'download_unread':
                     final unread = [for (final c in data.chapters) if (!(progress[c.id]?.completed ?? false)) c];
-                    await ref.read(downloadManagerProvider).enqueue(manga: m, chapters: unread.reversed.toList());
-                    if (context.mounted) showSnack(context, 'В очереди: ${unread.length} глав');
+                    if (context.mounted) await startDownloads(context, ref, m, unread.reversed.toList());
                   case 'delete_downloads':
                     await ref.read(downloadManagerProvider).deleteManga(m.sourceId, m.id);
                 }
@@ -186,7 +186,7 @@ class _Body extends ConsumerWidget {
                 HapticFeedback.selectionClick();
                 onSelect(c.id);
               },
-              onDownload: () => ref.read(downloadManagerProvider).enqueue(manga: m, chapters: [c]),
+              onDownload: () => startDownloads(context, ref, m, [c]),
               onDeleteDownload: () => ref.read(downloadManagerProvider).delete(m.sourceId, c.id),
               onRetryDownload: () {
                 final t = downloads[c.id];
@@ -543,6 +543,10 @@ class _DownloadButton extends StatelessWidget {
       DownloadStatus.failed => IconButton(
           tooltip: t.error ?? 'Ошибка · повторить', onPressed: onRetry, icon: const Icon(Icons.error_outline_rounded, color: MfColors.danger)),
       DownloadStatus.paused => IconButton(tooltip: 'Пауза', onPressed: onRetry, icon: const Icon(Icons.pause_circle_outline_rounded)),
+      DownloadStatus.retrying => IconButton(
+          tooltip: 'Повтор позже${t.error != null ? ': ${t.error}' : ''} · нажмите, чтобы повторить сейчас',
+          onPressed: onRetry,
+          icon: const Icon(Icons.schedule_rounded, color: MfColors.warning)),
       _ => SizedBox(
           width: MfSize.tap,
           height: MfSize.tap,
@@ -600,7 +604,7 @@ class _SelectionBar extends ConsumerWidget {
           tooltip: 'Скачать',
           icon: const Icon(Icons.download_rounded),
           onPressed: () async {
-            await ref.read(downloadManagerProvider).enqueue(manga: data.manga, chapters: chapters.reversed.toList());
+            await startDownloads(context, ref, data.manga, chapters.reversed.toList());
             onDone();
           },
         ),

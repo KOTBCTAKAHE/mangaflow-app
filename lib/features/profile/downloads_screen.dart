@@ -10,12 +10,18 @@ import '../../core/utils/format.dart';
 import '../../data/services/download_manager.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
+import '../downloads_support.dart';
 
-final _downloadsProvider = FutureProvider.autoDispose<(List<DownloadTask>, int)>((ref) async {
+final _downloadsProvider = FutureProvider.autoDispose<(List<DownloadTask>, int, DownloadsState, bool)>((ref) async {
   ref.watch(downloadsChangesProvider);
   final m = ref.watch(downloadManagerProvider);
-  return (await m.all(), await m.totalBytes());
+  return (await m.all(), await m.totalBytes(), await m.state(), await isBatteryUnrestricted());
 });
+
+String _hhmm(DateTime d) {
+  final l = d.toLocal();
+  return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+}
 
 class DownloadsScreen extends ConsumerWidget {
   const DownloadsScreen({super.key});
@@ -47,7 +53,7 @@ class DownloadsScreen extends ConsumerWidget {
       body: AsyncBody(
         value: data,
         data: (d) {
-          final (tasks, bytes) = d;
+          final (tasks, bytes, state, batteryOk) = d;
           if (tasks.isEmpty) {
             return const EmptyState(
               icon: Icons.download_for_offline_outlined,
@@ -59,10 +65,42 @@ class DownloadsScreen extends ConsumerWidget {
           for (final t in tasks) {
             groups.putIfAbsent('${t.sourceId}|${t.mangaId}', () => []).add(t);
           }
+          final active = tasks.where((t) => t.isActive).length;
+          final failed = tasks.where((t) => t.status == DownloadStatus.failed).length;
           return ListView(padding: const EdgeInsets.only(bottom: MfSpace.huge), children: [
+            if (active > 0 && state == DownloadsState.waitingNetwork)
+              const _Banner(icon: Icons.wifi_off_rounded, text: 'Нет сети. Загрузка продолжится сама, как только интернет появится.'),
+            if (active > 0 && state == DownloadsState.waitingWifi)
+              const _Banner(icon: Icons.wifi_rounded, text: 'Ожидание Wi-Fi: включено «Загружать только по Wi-Fi».'),
+            if (active > 0 && state == DownloadsState.waitingRetry)
+              _Banner(
+                icon: Icons.schedule_rounded,
+                text: 'Источник или сеть нестабильны — главы будут повторены автоматически.',
+                action: TextButton(onPressed: m.retryAllFailed, child: const Text('Сейчас')),
+              ),
+            if (active > 0 && !batteryOk)
+              _Banner(
+                icon: Icons.battery_alert_rounded,
+                text: 'Экономия батареи может остановить загрузку ночью.',
+                action: TextButton(
+                  onPressed: () async {
+                    await ensureBackgroundAllowed(context, ref, force: true);
+                    ref.invalidate(_downloadsProvider);
+                  },
+                  child: const Text('Разрешить'),
+                ),
+              ),
+            if (failed > 0)
+              _Banner(
+                icon: Icons.error_outline_rounded,
+                text: 'Не удалось скачать: $failed.',
+                action: TextButton(onPressed: m.retryAllFailed, child: const Text('Повторить все')),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.sm, MfSpace.gutter, MfSpace.md),
-              child: Text('${tasks.where((t) => t.status == DownloadStatus.completed).length} глав · ${formatBytes(bytes)}',
+              child: Text(
+                  '${tasks.where((t) => t.status == DownloadStatus.completed).length} глав · ${formatBytes(bytes)}'
+                  '${active > 0 ? ' · в очереди $active' : ''}',
                   style: context.text.bodySmall),
             ),
             for (final g in groups.values) _Group(tasks: g),
@@ -101,6 +139,11 @@ class _Group extends ConsumerWidget {
               DownloadStatus.failed => Text(t.error ?? 'Ошибка', style: const TextStyle(color: MfColors.danger)),
               DownloadStatus.paused => const Text('Пауза'),
               DownloadStatus.queued => const Text('В очереди'),
+              DownloadStatus.retrying => Text(
+                  'Повтор${t.nextAttemptAt != null ? ' в ${_hhmm(t.nextAttemptAt!)}' : ''} · попытка ${t.attempts}'
+                  '${t.error != null ? ' · ${t.error}' : ''}',
+                  maxLines: 2,
+                  style: const TextStyle(color: MfColors.warning)),
               DownloadStatus.downloading => Padding(
                   padding: const EdgeInsets.only(top: MfSpace.xs),
                   child: LinearProgressIndicator(value: t.pageCount == 0 ? null : t.progress),
@@ -110,7 +153,7 @@ class _Group extends ConsumerWidget {
                 ? () => context.push(Routes.reader(t.sourceId, t.mangaId, t.chapterId))
                 : null,
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (t.status == DownloadStatus.failed || t.status == DownloadStatus.paused)
+              if (t.status == DownloadStatus.failed || t.status == DownloadStatus.paused || t.status == DownloadStatus.retrying)
                 IconButton(tooltip: 'Повторить', icon: const Icon(Icons.refresh_rounded), onPressed: () => m.retry(t)),
               IconButton(
                 tooltip: 'Удалить',
@@ -122,4 +165,27 @@ class _Group extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _Banner extends StatelessWidget {
+  const _Banner({required this.icon, required this.text, this.action});
+  final IconData icon;
+  final String text;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.sm, MfSpace.gutter, 0),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: MfSpace.lg, vertical: MfSpace.sm),
+            child: Row(children: [
+              Icon(icon, color: MfColors.accent),
+              const SizedBox(width: MfSpace.md),
+              Expanded(child: Text(text, style: context.text.bodySmall)),
+              if (action != null) action!,
+            ]),
+          ),
+        ),
+      );
 }

@@ -12,6 +12,7 @@ import 'app/router.dart';
 import 'core/providers.dart';
 import 'core/storage/database.dart';
 import 'data/services/background.dart';
+import 'data/services/downloads/download_runtime.dart';
 import 'data/services/notifications.dart';
 
 Future<void> main() async {
@@ -38,6 +39,8 @@ Future<void> main() async {
   await container.read(authProvider.notifier).restore();
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    DownloadService.init();
+    await BackgroundUpdates.initialize();
     unawaited(ChapterNotifier.instance.init());
     if (container.read(settingsProvider).notifyUpdates) {
       unawaited(BackgroundUpdates.register().catchError((Object _) {}));

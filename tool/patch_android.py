@@ -27,11 +27,29 @@ def patch_manifest() -> None:
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.ACCESS_WIFI_STATE",
     ]
     for p in perms:
         if p not in text:
             text = text.replace("<application", f'<uses-permission android:name="{p}"/>\n    <application', 1)
     text = re.sub(r'android:label="[^"]*"', 'android:label="MangaFlow"', text, count=1)
+    if "flutter_foreground_task.service.ForegroundService" not in text:
+        service = (
+            '        <!-- Offline chapter downloads (specialUse: no 6-hour dataSync limit on Android 15+) -->\n'
+            '        <service\n'
+            '            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"\n'
+            '            android:foregroundServiceType="specialUse"\n'
+            '            android:stopWithTask="false"\n'
+            '            android:exported="false">\n'
+            '            <property\n'
+            '                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"\n'
+            '                android:value="Downloading manga chapters for offline reading" />\n'
+            '        </service>\n'
+        )
+        text = text.replace("    </application>", service + "    </application>", 1)
     if "usesCleartextTraffic" not in text:
         text = text.replace("<application", '<application\n        android:usesCleartextTraffic="true"', 1)
     MANIFEST.write_text(text)

@@ -71,7 +71,6 @@ void _bump(Ref ref) {
 final downloadManagerProvider = Provider<DownloadManager>((ref) {
   final m = DownloadManager(
     db: ref.watch(_db),
-    api: ref.watch(catalogApiProvider),
     settings: () => ref.read(settingsProvider),
     onChapterCompleted: (t) {
       if (!ref.read(authProvider.notifier).isSignedIn) return;
