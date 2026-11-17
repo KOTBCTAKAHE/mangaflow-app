@@ -6,8 +6,7 @@
 abstract final class AppConfig {
   static const defaultApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    // 10.0.2.2 is the host machine from the Android emulator.
-    defaultValue: 'http://10.0.2.2:8080',
+    defaultValue: 'https://api-manga.aniroom.space',
   );
 
   static const appName = 'MangaFlow';
