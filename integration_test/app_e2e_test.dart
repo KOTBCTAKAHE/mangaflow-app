@@ -57,11 +57,16 @@ void main() {
 
     // ---- Title details
     await tester.tap(find.text('Тестовая манхва').first);
-    await pumpUntil(tester, find.text('Глава 1'));
+    await pumpUntil(tester, find.textContaining('Описание: Тестовая манхва'));
     await settle(tester, 1500);
-    expect(find.textContaining('Описание: Тестовая манхва'), findsOneWidget);
     expect(find.text('Экшен'), findsWidgets);
     await shot(tester, '02_title');
+    final titleScroll = find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.text('Глава 1'), 250, scrollable: titleScroll);
+    await settle(tester, 600);
+    await shot(tester, '02b_chapters');
+    await tester.scrollUntilVisible(find.text('Читать'), -250, scrollable: titleScroll);
+    await settle(tester, 400);
 
     await tester.tap(find.byTooltip('В библиотеку'));
     await pumpUntil(tester, find.text('Добавлено в библиотеку'));
@@ -102,8 +107,13 @@ void main() {
     await shot(tester, '07_title_progress');
 
     // ---- Offline download of one chapter
+    final scroll2 = find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byTooltip('Скачать').first, 250, scrollable: scroll2);
+    await settle(tester, 400);
     await tester.tap(find.byTooltip('Скачать').first);
     await pumpUntil(tester, find.byTooltip('Скачано · удалить'), timeout: const Duration(seconds: 60));
+    await settle(tester, 500);
+    await shot(tester, '07b_downloaded');
 
     // ---- Library
     await tester.tap(find.byType(BackButton).first);
