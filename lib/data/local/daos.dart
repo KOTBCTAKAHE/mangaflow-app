@@ -306,7 +306,10 @@ class SearchHistoryDao {
   Future<void> add(String q) async {
     final query = q.trim();
     if (query.isEmpty) return;
-    await db.insert('search_history', {'query': query, 'created_at': _now()}, conflictAlgorithm: ConflictAlgorithm.replace);
+    // strictly increasing timestamps keep ordering stable for rapid consecutive searches
+    final last = Sqflite.firstIntValue(await db.rawQuery('SELECT MAX(created_at) FROM search_history')) ?? 0;
+    final ts = _now() > last ? _now() : last + 1;
+    await db.insert('search_history', {'query': query, 'created_at': ts}, conflictAlgorithm: ConflictAlgorithm.replace);
     await db.rawDelete(
         'DELETE FROM search_history WHERE query NOT IN (SELECT query FROM search_history ORDER BY created_at DESC LIMIT 50)');
   }
