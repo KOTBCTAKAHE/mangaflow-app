@@ -134,14 +134,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     final history = ref.watch(searchHistoryProvider).valueOrNull ?? const <String>[];
     return [
       if (history.isNotEmpty) ...[
-        SectionHeader(
-          title: 'Недавние запросы',
-          trailing: TextButton(
-            onPressed: () async {
-              await ref.read(searchHistoryDaoProvider).clear();
-              ref.invalidate(searchHistoryProvider);
-            },
-            child: const Text('Очистить'),
+        SliverToBoxAdapter(
+          child: SectionHeader(
+            title: 'Недавние запросы',
+            trailing: TextButton(
+              onPressed: () async {
+                await ref.read(searchHistoryDaoProvider).clear();
+                ref.invalidate(searchHistoryProvider);
+              },
+              child: const Text('Очистить'),
+            ),
           ),
         ),
         SliverToBoxAdapter(
@@ -161,7 +163,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           ),
         ),
       ],
-      const SectionHeader(title: 'Жанры', subtitle: 'Поиск по всем источникам'),
+      const SliverToBoxAdapter(child: SectionHeader(title: 'Жанры', subtitle: 'Поиск по всем источникам')),
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
@@ -177,7 +179,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           ]),
         ),
       ),
-      const SectionHeader(title: 'Каталоги источников'),
+      const SliverToBoxAdapter(child: SectionHeader(title: 'Каталоги источников')),
       SliverList.builder(
         itemCount: sources.length,
         itemBuilder: (context, i) {

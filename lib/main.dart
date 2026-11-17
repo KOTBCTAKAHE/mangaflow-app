@@ -17,6 +17,20 @@ import 'data/services/notifications.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Release builds render a blank grey box on build errors; show something actionable instead.
+  ErrorWidget.builder = (details) => Material(
+        color: const Color(0xFF15171B),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Text(
+              'Ошибка отображения. Сообщите разработчику:\n\n${details.exceptionAsString()}',
+              style: const TextStyle(color: Color(0xFFA2A7B0), fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     systemNavigationBarColor: Colors.transparent,
