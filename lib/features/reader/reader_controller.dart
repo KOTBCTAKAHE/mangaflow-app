@@ -45,7 +45,15 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
     required this.library,
     required this.prefs,
     required this.settings,
+    this.preSync,
+    this.isTablet = false,
   });
+
+  /// Pull the latest position from other devices before choosing the start page.
+  final Future<void> Function()? preSync;
+
+  /// Wide landscape screen: default to a two-page spread for paged titles.
+  final bool isTablet;
 
   final String sourceId;
   final String mangaId;
@@ -109,11 +117,15 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
       ordered = data.chapters.reversed.toList();
       final idx = ordered.indexWhere((c) => c.id == startChapterId);
       chapterIdx = idx < 0 ? 0 : idx;
-      mode = await prefs.readingMode(sourceId, mangaId) ??
-          settings().defaultReadingMode ??
-          ReadingMode.suggestedFor(manga!.kind);
+      final titleMode = await prefs.readingMode(sourceId, mangaId);
+      mode = titleMode ?? settings().defaultReadingMode ?? ReadingMode.suggestedFor(manga!.kind);
+      if (titleMode == null && isTablet && mode == ReadingMode.pagedRtl) mode = ReadingMode.doublePage;
       var startPage = initialPage;
       if (startPage == null) {
+        // closed the chapter on the phone → open it on the tablet at the same page
+        try {
+          await preSync?.call().timeout(const Duration(seconds: 3));
+        } catch (_) {}
         final p = (await reading.progressFor(sourceId, mangaId))[ordered[chapterIdx].id];
         if (p != null && !p.completed) startPage = p.pageIndex;
       }

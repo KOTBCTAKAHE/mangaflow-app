@@ -66,6 +66,17 @@ def patch_manifest() -> None:
             text = text.replace("    </queries>", entries + "    </queries>", 1)
         else:
             text = text.replace("</manifest>", "    <queries>\n" + entries + "    </queries>\n</manifest>", 1)
+    if "ContinueWidgetProvider" not in text:
+        widget = (
+            '        <!-- Home-screen widget "Продолжить чтение" -->\n'
+            '        <receiver android:name=".ContinueWidgetProvider" android:exported="false" android:label="Продолжить чтение">\n'
+            '            <intent-filter>\n'
+            '                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n'
+            '            </intent-filter>\n'
+            '            <meta-data android:name="android.appwidget.provider" android:resource="@xml/continue_widget_info" />\n'
+            '        </receiver>\n'
+        )
+        text = text.replace("    </application>", widget + "    </application>", 1)
     if "usesCleartextTraffic" not in text:
         text = text.replace("<application", '<application\n        android:usesCleartextTraffic="true"', 1)
     MANIFEST.write_text(text)
@@ -186,6 +197,11 @@ def copy_native_sources() -> None:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(f, dst)
     shutil.copyfile(ROOT / "tool/android/proguard-rules.pro", ANDROID / "app/proguard-rules.pro")
+    res_src = ROOT / "tool/android/res"
+    for f in res_src.rglob("*.xml"):
+        dst = ANDROID / "app/src/main/res" / f.relative_to(res_src)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(f, dst)
 
 
 def write_splash() -> None:

@@ -72,8 +72,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final query = ref.watch(libraryQueryProvider);
     final view = ref.watch(settingsProvider.select((x) => x.libraryView));
 
+    final all = entries.valueOrNull ?? const <LibraryEntry>[];
+    final monthAgo = DateTime.now().subtract(const Duration(days: 30));
+    bool fresh(LibraryEntry e) => e.unreadUpdates > 0;
+    bool almost(LibraryEntry e) {
+      final r = e.lastChapterNumber, t = e.totalChapters;
+      if (r == null || t == null || t < 5) return false;
+      return r < t && (r / t >= 0.8 || t - r <= 3);
+    }
+
+    bool abandoned(LibraryEntry e) =>
+        e.status == LibraryStatus.reading && (e.lastReadAt ?? e.addedAt).isBefore(monthAgo);
     final tabs = <_Tab>[
       _Tab('Все', (_) => true),
+      // smart shelves — shown only when they have something
+      if (all.any(fresh)) _Tab('Вышли новые главы', fresh),
+      if (all.any(almost)) _Tab('Почти дочитано', almost),
+      if (all.any(abandoned)) _Tab('Брошено > месяца', abandoned),
       _Tab('Избранное', (e) => e.isFavorite),
       for (final s in LibraryStatus.values) _Tab(s.label, (e) => e.status == s),
       for (final c in collections) _Tab(c.name, (e) => e.collectionIds.contains(c.id)),

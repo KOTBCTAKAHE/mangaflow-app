@@ -18,6 +18,6 @@ abstract final class AppConfig {
   static const receiveTimeout = Duration(seconds: 30);
   static const searchDebounce = Duration(milliseconds: 350);
   static const progressSaveDebounce = Duration(milliseconds: 400);
-  static const syncInterval = Duration(minutes: 5);
+  static const syncInterval = Duration(seconds: 90);
   static const titleCacheTtl = Duration(minutes: 30);
 }

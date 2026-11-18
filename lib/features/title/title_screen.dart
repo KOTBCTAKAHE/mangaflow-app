@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,8 @@ import '../../widgets/cover_color.dart';
 import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/net_image.dart';
+import '../../data/local/bookmarks_dao.dart';
+import 'other_sources.dart';
 import '../../widgets/states.dart';
 import '../downloads_support.dart';
 import '../library/library_actions.dart';
@@ -54,6 +57,8 @@ class _TitleScreenState extends ConsumerState<TitleScreen> {
       await ref.read(updatesDaoProvider).markSeen(sourceId: k.sourceId, mangaId: k.mangaId);
       await ref.read(libraryDaoProvider).setUnread(k.sourceId, k.mangaId, 0);
       ref.read(dataVersionProvider.notifier).state++;
+      // fresh positions from other devices (progress list refreshes when the pull lands)
+      unawaited(ref.read(syncEngineProvider).sync());
     });
   }
 
@@ -125,11 +130,20 @@ class _Body extends ConsumerWidget {
     if (hideRead) chapters = [for (final c in chapters) if (!(progress[c.id]?.completed ?? false)) c];
     final readCount = data.chapters.where((c) => progress[c.id]?.completed ?? false).length;
 
-    return CustomScrollView(slivers: [
+    final top = <Widget>[
       _Header(manga: m, fromCache: data.fromCache),
       if (data.chapters.isNotEmpty)
         SliverToBoxAdapter(child: _ProgressStrip(read: readCount, total: data.chapters.length)),
       SliverToBoxAdapter(child: _Info(manga: m)),
+      SliverToBoxAdapter(child: _TitleBookmarks(k: k)),
+      SliverToBoxAdapter(
+        child: OtherSourcesPanel(
+          k: k,
+          currentMax: data.chapters.fold<double?>(null, (a, c) => c.number == null ? a : (a == null || c.number! > a ? c.number : a)),
+        ),
+      ),
+    ];
+    final chapterSlivers = <Widget>[
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.xxl, MfSpace.sm, MfSpace.sm),
@@ -211,7 +225,24 @@ class _Body extends ConsumerWidget {
           },
         ),
       SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120))),
-    ]);
+    ];
+    // Tablet: details on the left, chapters on the right.
+    if (MediaQuery.sizeOf(context).width >= 900) {
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 440,
+          child: CustomScrollView(slivers: [...top, SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120)))]),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: CustomScrollView(slivers: [
+            SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + MfSpace.md)),
+            ...chapterSlivers,
+          ]),
+        ),
+      ]);
+    }
+    return CustomScrollView(slivers: [...top, ...chapterSlivers]);
   }
 }
 
@@ -779,4 +810,70 @@ class _TitleSkeleton extends StatelessWidget {
           for (var i = 0; i < 6; i++) ...[const Skeleton(height: 48), const SizedBox(height: MfSpace.sm)],
         ]),
       );
+}
+
+
+final _titleBookmarksProvider = FutureProvider.autoDispose.family<List<Bookmark>, TitleKey>((ref, k) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(bookmarksDaoProvider).forManga(k.sourceId, k.mangaId);
+});
+
+/// Page bookmarks of this title: tap to jump straight to the page.
+class _TitleBookmarks extends ConsumerWidget {
+  const _TitleBookmarks({required this.k});
+  final TitleKey k;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final list = ref.watch(_titleBookmarksProvider(k)).valueOrNull ?? const <Bookmark>[];
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: MfSpace.lg),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
+          child: Text('Закладки · ${list.length}', style: MfType.titleSmall.copyWith(color: context.colors.onSurface)),
+        ),
+        const SizedBox(height: MfSpace.sm),
+        SizedBox(
+          height: 78,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
+            itemCount: list.length,
+            separatorBuilder: (_, __) => const SizedBox(width: MfSpace.sm),
+            itemBuilder: (context, i) {
+              final b = list[i];
+              return SizedBox(
+                width: 220,
+                child: Material(
+                  color: context.colors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(MfRadius.md),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(MfRadius.md),
+                    onTap: () => context.push(Routes.reader(b.sourceId, b.mangaId, b.chapterId, page: b.pageIndex)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(MfSpace.md),
+                      child: Row(children: [
+                        Icon(Icons.bookmark_rounded, color: context.colors.primary, size: 20),
+                        const SizedBox(width: MfSpace.sm),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Text('${b.chapterTitle} · стр. ${b.pageIndex + 1}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: MfType.label.copyWith(color: context.colors.onSurface)),
+                            if (b.note.isNotEmpty)
+                              Text(b.note, maxLines: 2, overflow: TextOverflow.ellipsis, style: context.text.bodySmall),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ]),
+    );
+  }
 }

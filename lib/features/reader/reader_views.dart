@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
+import '../title/other_sources.dart';
 import 'reader_controller.dart';
 import 'reader_page_image.dart';
 
@@ -280,6 +281,7 @@ class _ChapterEndCard extends StatelessWidget {
         loading: isLastLoaded && c.loadingNext,
         // in the strip the next chapter streams in below; the button jumps straight to it
         onNext: next == null ? null : () => c.openChapter(segment.index + 1),
+        onFindElsewhere: next == null ? findElsewhere(context, c) : null,
       ),
     );
   }
@@ -294,7 +296,11 @@ class ChapterFinishCard extends StatelessWidget {
     required this.remaining,
     required this.onNext,
     this.loading = false,
+    this.onFindElsewhere,
   });
+
+  /// When there is no next chapter here: look for the continuation in other sources.
+  final VoidCallback? onFindElsewhere;
 
   final Chapter finished;
   final Chapter? next;
@@ -342,10 +348,22 @@ class ChapterFinishCard extends StatelessWidget {
         Text(finished.title, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
             style: MfType.bodySmall.copyWith(color: Colors.white60)),
         const SizedBox(height: MfSpace.lg),
-        if (next == null)
-          Text('Это последняя доступная глава.\nНовые появятся в «Обновлениях».',
-              textAlign: TextAlign.center, style: MfType.body.copyWith(color: Colors.white70))
-        else ...[
+        if (next == null) ...[
+          Text('Это последняя доступная глава здесь.\nНовые появятся в «Обновлениях».',
+              textAlign: TextAlign.center, style: MfType.body.copyWith(color: Colors.white70)),
+          if (onFindElsewhere != null) ...[
+            const SizedBox(height: MfSpace.md),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: onFindElsewhere,
+                icon: const Icon(Icons.travel_explore_rounded),
+                label: const Text('Искать продолжение в других источниках'),
+              ),
+            ),
+          ],
+        ] else ...[
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(MfSpace.md),
@@ -598,8 +616,16 @@ class _PagedEnd extends StatelessWidget {
                 next: c.nextChapter,
                 remaining: c.ordered.length - seg.index - 1,
                 onNext: c.nextChapter == null ? null : c.goNextChapter,
+                onFindElsewhere: c.nextChapter == null ? findElsewhere(context, c) : null,
               ),
       ),
     );
   }
+}
+
+VoidCallback? findElsewhere(BuildContext context, ReaderController c) {
+  final m = c.manga;
+  if (m == null) return null;
+  final maxN = c.ordered.fold<double?>(null, (a, ch) => ch.number == null ? a : (a == null || ch.number! > a ? ch.number : a));
+  return () => showOtherSourcesSheet(context, (sourceId: m.sourceId, mangaId: m.id), maxN);
 }

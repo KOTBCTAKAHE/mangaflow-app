@@ -5,6 +5,8 @@ import '../features/discover/discover_screen.dart';
 import '../features/discover/source_browse_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/library/library_screen.dart';
+import '../features/profile/bookmarks_screen.dart';
+import '../features/profile/year_review_screen.dart';
 import '../features/profile/auth_screen.dart';
 import '../features/profile/downloads_screen.dart';
 import '../features/profile/history_screen.dart';
@@ -72,6 +74,8 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/auth', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const AuthScreen()),
         GoRoute(path: '/settings', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const SettingsScreen()),
         GoRoute(path: '/stats', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const StatsScreen()),
+        GoRoute(path: '/review', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const YearReviewScreen()),
+        GoRoute(path: '/bookmarks', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const BookmarksScreen()),
         GoRoute(path: '/downloads', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const DownloadsScreen()),
         GoRoute(path: '/history', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const HistoryScreen()),
         GoRoute(path: '/updates', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const UpdatesScreen()),

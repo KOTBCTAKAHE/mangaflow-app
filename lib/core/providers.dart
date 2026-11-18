@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/local/bookmarks_dao.dart';
 import '../data/local/daos.dart';
 import '../data/models/library.dart';
 import '../data/models/reading.dart';
@@ -60,6 +61,13 @@ final titlePrefsDaoProvider = Provider((ref) => TitlePrefsDao(ref.watch(_db)));
 final searchHistoryDaoProvider = Provider((ref) => SearchHistoryDao(ref.watch(_db)));
 final updatesDaoProvider = Provider((ref) => UpdatesDao(ref.watch(_db)));
 final kvDaoProvider = Provider((ref) => KvDao(ref.watch(_db)));
+final bookmarksDaoProvider = Provider((ref) => BookmarksDao(ref.watch(_db)));
+
+/// All bookmarks, newest first (refreshes with local data changes).
+final bookmarksProvider = FutureProvider<List<Bookmark>>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(bookmarksDaoProvider).all();
+});
 
 /// Bumped on every local data change; list providers watch it to refresh.
 final dataVersionProvider = StateProvider<int>((_) => 0);

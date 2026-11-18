@@ -49,6 +49,8 @@ class ProfileScreen extends ConsumerWidget {
         if (stats != null) _StatsStrip(stats: stats),
         const SizedBox(height: MfSpace.md),
         const _Link(icon: Icons.insights_outlined, title: 'Статистика', subtitle: 'Время чтения, серии, календарь', route: '/stats'),
+        const _Link(icon: Icons.auto_awesome_rounded, title: 'Итоги года', subtitle: 'Карточка, которой можно поделиться', route: '/review'),
+        const _Link(icon: Icons.bookmarks_outlined, title: 'Закладки', subtitle: 'Страницы с заметками', route: '/bookmarks'),
         const _Link(icon: Icons.history_rounded, title: 'История чтения', route: '/history'),
         const _Link(icon: Icons.notifications_none_rounded, title: 'Новые главы', route: '/updates'),
         const _Link(icon: Icons.download_for_offline_outlined, title: 'Загрузки', subtitle: 'Главы для чтения офлайн', route: '/downloads'),

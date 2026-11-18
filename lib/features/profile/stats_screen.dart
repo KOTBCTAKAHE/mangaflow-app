@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -8,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../data/models/library.dart';
 import '../../data/models/reading.dart';
 import '../../widgets/states.dart';
+import 'year_review_screen.dart' show AchievementsSection;
 
 final statsProvider = FutureProvider<ReadingStats>((ref) {
   ref.watch(dataVersionProvider);
@@ -26,6 +28,8 @@ class StatsScreen extends ConsumerWidget {
         value: stats,
         onRetry: () => ref.invalidate(statsProvider),
         data: (s) => ListView(padding: const EdgeInsets.all(MfSpace.gutter), children: [
+          _ReviewBanner(onTap: () => context.push('/review')),
+          const SizedBox(height: MfSpace.lg),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -49,6 +53,8 @@ class StatsScreen extends ConsumerWidget {
           const SizedBox(height: MfSpace.md),
           for (final st in LibraryStatus.values)
             _StatusBar(label: st.label, value: s.byStatus[st.api] ?? 0, total: s.libraryTotal),
+          const SizedBox(height: MfSpace.xxl),
+          const AchievementsSection(),
         ]),
       ),
     );
@@ -152,5 +158,38 @@ class _StatusBar extends StatelessWidget {
           ),
           SizedBox(width: 40, child: Text('$value', textAlign: TextAlign.end, style: context.text.labelLarge)),
         ]),
+      );
+}
+
+class _ReviewBanner extends StatelessWidget {
+  const _ReviewBanner({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        borderRadius: BorderRadius.circular(MfRadius.lg),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [MfColors.accent, Color.lerp(MfColors.accent, const Color(0xFF1B1030), 0.6)!]),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(MfSpace.lg),
+              child: Row(children: [
+                const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+                const SizedBox(width: MfSpace.md),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Итоги ${DateTime.now().year}', style: MfType.title.copyWith(color: Colors.white)),
+                    Text('Главы, часы, любимые жанры и запои — карточкой', style: MfType.caption.copyWith(color: Colors.white70)),
+                  ]),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: Colors.white),
+              ]),
+            ),
+          ),
+        ),
       );
 }

@@ -9,7 +9,7 @@ class AppDatabase {
   AppDatabase._(this.db);
   final Database db;
 
-  static const version = 2;
+  static const version = 3;
 
   /// [singleInstance] must be false for background isolates: sqflite shares one
   /// native handle per path, so closing it there would close the app's database too.
@@ -58,6 +58,23 @@ class AppDatabase {
       await db.execute('ALTER TABLE downloads ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
       await db.execute('ALTER TABLE downloads ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0');
       await db.execute('CREATE INDEX ix_downloads_queue ON downloads(status, next_attempt_at)');
+    }
+    if (from < 3) {
+      // page bookmarks with notes
+      await db.execute('''CREATE TABLE bookmarks (
+        id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL,
+        manga_id TEXT NOT NULL,
+        manga_title TEXT NOT NULL DEFAULT '',
+        cover_url TEXT NOT NULL DEFAULT '',
+        chapter_id TEXT NOT NULL,
+        chapter_title TEXT NOT NULL DEFAULT '',
+        chapter_number REAL,
+        page_index INTEGER NOT NULL DEFAULT 0,
+        note TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL
+      )''');
+      await db.execute('CREATE INDEX ix_bookmarks_manga ON bookmarks(source_id, manga_id, created_at)');
     }
   }
 

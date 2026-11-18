@@ -1,0 +1,56 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../app/router.dart';
+import '../../widgets/net_image.dart';
+import '../models/reading.dart';
+
+/// Feeds the Android home-screen widget "Продолжить чтение" (ContinueWidgetProvider.kt).
+abstract final class HomeWidgetSync {
+  static const _ch = MethodChannel('mangaflow/widget');
+  static String? _lastKey;
+
+  static Future<void> update(SharedPreferences prefs, ContinueItem? item) async {
+    if (!Platform.isAndroid) return;
+    final key = item == null ? 'none' : '${item.sourceId}|${item.chapterId}|${(item.fraction * 100).round()}';
+    if (key == _lastKey) return;
+    _lastKey = key;
+    try {
+      if (item == null) {
+        for (final k in const ['widget_title', 'widget_chapter', 'widget_progress', 'widget_cover', 'widget_route']) {
+          await prefs.remove(k);
+        }
+      } else {
+        await prefs.setString('widget_title', item.title);
+        await prefs.setString('widget_chapter', item.chapterTitle);
+        await prefs.setInt('widget_progress', (item.fraction * 100).round());
+        await prefs.setString('widget_route', Routes.reader(item.sourceId, item.mangaId, item.chapterId));
+        if (item.coverUrl.isNotEmpty) {
+          try {
+            final src = await DefaultCacheManager().getSingleFile(withWidth(item.coverUrl, 320));
+            final dst = File('${(await getApplicationSupportDirectory()).path}/widget_cover.img');
+            await src.copy(dst.path);
+            await prefs.setString('widget_cover', dst.path);
+          } catch (_) {}
+        }
+      }
+      await _ch.invokeMethod<void>('update');
+    } catch (_) {}
+  }
+
+  /// Taps on the widget: the route to open (cold start + while running).
+  static Future<void> listen(void Function(String route) open) async {
+    if (!Platform.isAndroid) return;
+    _ch.setMethodCallHandler((call) async {
+      if (call.method == 'open' && call.arguments is String) open(call.arguments as String);
+    });
+    try {
+      final initial = await _ch.invokeMethod<String>('initialRoute');
+      if (initial != null) open(initial);
+    } catch (_) {}
+  }
+}

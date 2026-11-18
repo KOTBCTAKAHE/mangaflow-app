@@ -14,6 +14,8 @@ import '../../data/models/reading.dart';
 import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/net_image.dart';
+import '../profile/stats_screen.dart' show statsProvider;
+import 'recommendations.dart';
 import '../../widgets/states.dart';
 
 final sourcesProvider = FutureProvider<List<SourceInfo>>((ref) {
@@ -80,6 +82,7 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SliverToBoxAdapter(child: _Greeting()),
             const SliverToBoxAdapter(child: _ContinueReading()),
+            const SliverToBoxAdapter(child: RecommendationsSection()),
             if (sources.hasError && list.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -230,11 +233,12 @@ class _ContinueCard extends StatelessWidget {
 }
 
 /// "Добрый вечер" + a short line, sets the tone of the home screen.
-class _Greeting extends StatelessWidget {
+class _Greeting extends ConsumerWidget {
   const _Greeting();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streak = ref.watch(statsProvider).valueOrNull?.currentStreak ?? 0;
     final h = DateTime.now().hour;
     final hello = h < 5
         ? 'Доброй ночи'
@@ -248,7 +252,25 @@ class _Greeting extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.sm, MfSpace.gutter, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(hello, style: MfType.headline.copyWith(color: context.colors.onSurface)),
+        Row(children: [
+          Flexible(child: Text(hello, style: MfType.headline.copyWith(color: context.colors.onSurface))),
+          if (streak >= 2) ...[
+            const SizedBox(width: MfSpace.sm),
+            GestureDetector(
+              onTap: () => context.push('/stats'),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(6, 3, 10, 3),
+                decoration: BoxDecoration(color: MfColors.accentSoft, borderRadius: BorderRadius.circular(MfRadius.pill)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.local_fire_department_rounded, size: 16, color: MfColors.accent),
+                  const SizedBox(width: 2),
+                  Text('$streak ${streak % 10 >= 2 && streak % 10 <= 4 && (streak % 100 < 12 || streak % 100 > 14) ? 'дня' : (streak % 10 == 1 && streak % 100 != 11 ? 'день' : 'дней')}',
+                      style: MfType.caption.copyWith(color: MfColors.accent, fontWeight: FontWeight.w800)),
+                ]),
+              ),
+            ),
+          ],
+        ]),
         const SizedBox(height: 2),
         Text(h >= 22 || h < 5 ? 'Самое время для пары глав перед сном' : 'Что почитаем сегодня?',
             style: context.text.bodyMedium?.copyWith(color: context.textTertiary)),

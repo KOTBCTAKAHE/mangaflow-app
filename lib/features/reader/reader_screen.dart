@@ -9,6 +9,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
+import '../../data/local/bookmarks_dao.dart';
 import '../../data/models/settings.dart';
 import '../../data/services/downloads/download_upscale.dart';
 import '../../data/services/upscale_service.dart';
@@ -19,6 +20,7 @@ import '../../widgets/manga_widgets.dart' show showFullTitle;
 import '../../widgets/states.dart';
 import 'reader_controller.dart';
 import 'reader_settings_sheet.dart';
+import 'bookmark_sheet.dart';
 import 'share_page.dart';
 import 'upscale_compare_screen.dart';
 import 'reader_views.dart';
@@ -52,6 +54,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       library: ref.read(libraryRepositoryProvider),
       prefs: ref.read(titlePrefsDaoProvider),
       settings: () => ref.read(settingsProvider),
+      preSync: () => ref.read(syncEngineProvider).sync(),
+      isTablet: () {
+        final v = WidgetsBinding.instance.platformDispatcher.views.first;
+        final size = v.physicalSize / v.devicePixelRatio;
+        return size.width >= 840 && size.width > size.height;
+      }(),
     )..addListener(_onChange);
     unawaited(c.init());
     if (ref.read(settingsProvider).keepScreenOn) unawaited(WakelockPlus.enable().catchError((Object _) {}));
@@ -280,6 +288,17 @@ class _Overlay extends ConsumerWidget {
               ]),
               ),
             ),
+            if (seg != null && seg.pages.isNotEmpty && c.manga != null)
+              Consumer(builder: (context, ref, _) {
+                final ids = ref.watch(chapterBookmarksProvider((c.manga!.sourceId, seg.chapter.id))).valueOrNull ?? const {};
+                final marked = ids.contains(Bookmark.idFor(c.manga!.sourceId, seg.chapter.id, c.page));
+                return IconButton(
+                  tooltip: marked ? 'Закладка' : 'Добавить закладку',
+                  color: marked ? MfColors.accent : fg,
+                  icon: Icon(marked ? Icons.bookmark_rounded : Icons.bookmark_add_outlined),
+                  onPressed: () => showBookmarkSheet(context, ref, c),
+                );
+              }),
             if (seg != null && seg.pages.isNotEmpty)
               IconButton(
                 tooltip: 'Отправить страницу',
