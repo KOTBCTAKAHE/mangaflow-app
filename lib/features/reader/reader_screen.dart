@@ -299,45 +299,43 @@ class _Overlay extends ConsumerWidget {
                   onPressed: () => showBookmarkSheet(context, ref, c),
                 );
               }),
-            if (seg != null && seg.pages.isNotEmpty)
-              IconButton(
-                tooltip: 'Отправить страницу',
-                color: fg,
-                icon: const Icon(Icons.share_rounded),
-                onPressed: () => shareCurrentPage(context, c),
-              ),
-            if (c.upscaler != null && seg != null && seg.pages.isNotEmpty)
-              IconButton(
-                tooltip: 'Сравнить до/после улучшения',
-                color: fg,
-                icon: const Icon(Icons.compare_rounded),
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => UpscaleCompareScreen(
-                    page: seg.pages[c.page.clamp(0, seg.pages.length - 1)],
-                    upscaler: c.upscaler!,
-                  ),
-                )),
-              ),
-            IconButton(
-              tooltip: 'Режим чтения',
-              color: fg,
-              icon: Icon(switch (c.mode) {
-                ReadingMode.vertical => Icons.view_day_outlined,
-                ReadingMode.pagedLtr => Icons.arrow_forward_rounded,
-                ReadingMode.pagedRtl => Icons.arrow_back_rounded,
-                ReadingMode.doublePage => Icons.menu_book_outlined,
-              }),
-              onPressed: () {
-                final modes = ReadingMode.values;
-                c.setMode(modes[(modes.indexOf(c.mode) + 1) % modes.length]);
-                showSnack(context, c.mode.label);
-              },
-            ),
             IconButton(
               tooltip: 'Настройки чтения',
               color: fg,
               icon: const Icon(Icons.tune_rounded),
               onPressed: () => showReaderSettings(context, c),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Ещё',
+              iconColor: fg,
+              onSelected: (v) {
+                switch (v) {
+                  case 'share':
+                    shareCurrentPage(context, c);
+                  case 'compare':
+                    if (seg == null || c.upscaler == null) return;
+                    Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => UpscaleCompareScreen(
+                        page: seg.pages[c.page.clamp(0, seg.pages.length - 1)],
+                        upscaler: c.upscaler!,
+                      ),
+                    ));
+                  case 'mode':
+                    final modes = ReadingMode.values;
+                    c.setMode(modes[(modes.indexOf(c.mode) + 1) % modes.length]);
+                    showSnack(context, c.mode.label);
+                }
+              },
+              itemBuilder: (_) => [
+                if (seg != null && seg.pages.isNotEmpty)
+                  const PopupMenuItem(value: 'share', child: ListTile(leading: Icon(Icons.share_rounded), title: Text('Отправить страницу'))),
+                if (c.upscaler != null && seg != null && seg.pages.isNotEmpty)
+                  const PopupMenuItem(value: 'compare', child: ListTile(leading: Icon(Icons.compare_rounded), title: Text('Сравнить до/после ИИ'))),
+                PopupMenuItem(
+                  value: 'mode',
+                  child: ListTile(leading: const Icon(Icons.swap_horiz_rounded), title: const Text('Сменить режим'), subtitle: Text(c.mode.label)),
+                ),
+              ],
             ),
           ]),
         ),
