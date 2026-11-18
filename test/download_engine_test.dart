@@ -267,10 +267,10 @@ void main() {
   });
 
   test('page list fails while server unreachable → requeued without penalty', () async {
-    var down = 3;
-    reachable = () async => down <= 0;
+    var probes = 0;
+    reachable = () async => ++probes > 3; // the network comes back after a few probes (time passes)
     pagesImpl = (s, c, w) async {
-      if (down-- > 0) throw const ApiException('offline', 'offline');
+      if (probes <= 3) throw const ApiException('offline', 'offline');
       return [PageRef(index: 0, url: 'http://img/$c/0')];
     };
     http.on('http://img/c1/0', [(_) => ok(png(200))]);
