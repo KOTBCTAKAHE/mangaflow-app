@@ -98,6 +98,11 @@ class ChannelUpscaleBackend implements UpscaleBackend {
   }
 }
 
+class _StateNotifier extends ValueNotifier<UpscaleState> {
+  _StateNotifier() : super(UpscaleState.idle);
+  bool get listened => hasListeners;
+}
+
 class _Job {
   _Job(this.page, this.key);
   final PageRef page;
@@ -132,7 +137,7 @@ class PageUpscaler {
   bool get enabled => mode != UpscaleMode.off;
   int get maxSourceWidth => mode == UpscaleMode.always ? 1800 : (targetWidth * 0.95).round();
 
-  final _states = <String, ValueNotifier<UpscaleState>>{};
+  final _states = <String, _StateNotifier>{};
   final _queue = <_Job>[];
   _Job? _running;
   bool _pumping = false;
@@ -152,17 +157,17 @@ class PageUpscaler {
 
   ValueListenable<UpscaleState> watch(PageRef p) => _notifier(keyFor(p));
 
-  ValueNotifier<UpscaleState> _notifier(String key) {
+  _StateNotifier _notifier(String key) {
     final n = _states[key];
     if (n != null) return n;
     // keep the map bounded (a long reading session touches thousands of pages)
     if (_states.length > 600) {
-      final stale = [for (final e in _states.entries) if (!e.value.hasListeners && e.key != _running?.key) e.key];
+      final stale = [for (final e in _states.entries) if (!e.value.listened && e.key != _running?.key) e.key];
       for (final k in stale.take(_states.length - 400)) {
         _states.remove(k)?.dispose();
       }
     }
-    return _states[key] = ValueNotifier(UpscaleState.idle);
+    return _states[key] = _StateNotifier();
   }
 
   void _set(String key, UpscaleState s) {
@@ -171,11 +176,13 @@ class PageUpscaler {
   }
 
   Future<File> _target(String key) async {
-    final dir = _dir ??= await _cacheDir().then((d) async {
-      final up = Directory('${d.path}/upscaled');
-      await up.create(recursive: true);
-      return up;
-    });
+    var dir = _dir;
+    if (dir == null) {
+      final base = await _cacheDir();
+      dir = Directory('${base.path}/upscaled');
+      await dir.create(recursive: true);
+      _dir = dir;
+    }
     return File('${dir.path}/$key.jpg');
   }
 
