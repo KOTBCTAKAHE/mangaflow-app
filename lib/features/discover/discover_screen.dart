@@ -110,6 +110,11 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                     isLabelVisible: st.filters.activeCount > 0,
                     label: Text('${st.filters.activeCount}'),
                     child: IconButton.filledTonal(
+                      style: IconButton.styleFrom(
+                        backgroundColor: st.filters.activeCount > 0 ? MfColors.accentSoft : context.colors.surfaceContainer,
+                        foregroundColor: st.filters.activeCount > 0 ? MfColors.accent : context.colors.onSurface,
+                        fixedSize: const Size(52, 52),
+                      ),
                       tooltip: 'Фильтры',
                       onPressed: _openFilters,
                       icon: const Icon(Icons.tune_rounded),

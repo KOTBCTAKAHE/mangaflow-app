@@ -247,14 +247,25 @@ class CarouselSkeleton extends StatelessWidget {
       );
 }
 
-/// Responsive grid delegate for cover grids (adapts to phone/tablet widths).
-SliverGridDelegate coverGridDelegate(BuildContext context, {double maxCover = MfSize.gridMaxCover}) {
+/// Responsive grid delegate for cover grids: column count from [maxCover],
+/// tile height computed from the real cover width + text lines (no overflow at any text scale).
+SliverGridDelegate coverGridDelegate(
+  BuildContext context, {
+  double maxCover = MfSize.gridMaxCover,
+  double horizontalPadding = MfSpace.gutter * 2,
+  bool subtitle = true,
+}) {
   final scale = MediaQuery.textScalerOf(context).scale(1);
-  return SliverGridDelegateWithMaxCrossAxisExtent(
-    maxCrossAxisExtent: maxCover,
+  final width = MediaQuery.sizeOf(context).width - horizontalPadding;
+  const spacing = MfSpace.md;
+  final cols = ((width + spacing) / (maxCover + spacing)).ceil().clamp(2, 12);
+  final tileW = (width - spacing * (cols - 1)) / cols;
+  final text = MfSpace.sm + 2 * 17 * scale + (subtitle ? 2 + 18 * scale : 0) + 4;
+  return SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: cols,
     mainAxisSpacing: MfSpace.lg,
-    crossAxisSpacing: MfSpace.md,
-    childAspectRatio: MfSize.coverAspect * 0.78 / (scale > 1.1 ? 1.08 : 1),
+    crossAxisSpacing: spacing,
+    mainAxisExtent: tileW / MfSize.coverAspect + text,
   );
 }
 

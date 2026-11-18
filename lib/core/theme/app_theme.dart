@@ -48,6 +48,8 @@ abstract final class AppTheme {
       onPrimary: MfColors.onAccent,
       primaryContainer: MfColors.accentSoft,
       onPrimaryContainer: MfColors.accent,
+      secondaryContainer: MfColors.accentSoft,
+      onSecondaryContainer: MfColors.accent,
       secondary: secondaryText,
       onSecondary: bg,
       surface: surface,
@@ -214,6 +216,16 @@ abstract final class AppTheme {
         thumbColor: MfColors.accent,
         overlayColor: MfColors.accentSoft,
         trackHeight: 3,
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: secondaryText,
+          selectedBackgroundColor: MfColors.accentSoft,
+          selectedForegroundColor: MfColors.accent,
+          side: BorderSide(color: border),
+          textStyle: MfType.label,
+        ),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(

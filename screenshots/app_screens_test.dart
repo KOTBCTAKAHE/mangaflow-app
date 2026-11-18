@@ -23,6 +23,7 @@ import 'package:mangaflow/features/home/home_screen.dart';
 import 'package:mangaflow/features/library/library_screen.dart';
 import 'package:mangaflow/features/profile/settings_screen.dart';
 import 'package:mangaflow/features/reader/reader_screen.dart';
+import 'package:mangaflow/features/reader/reader_views.dart';
 import 'package:mangaflow/features/shell/app_shell.dart';
 import 'package:mangaflow/features/title/title_providers.dart';
 import 'package:mangaflow/features/title/title_screen.dart';
@@ -282,5 +283,32 @@ void main() {
     MfColors.palette = AccentPalette.violet;
     addTearDown(() => MfColors.palette = AccentPalette.ember);
     await shot(tester, c, tab(const LibraryScreen(), 2), '11_library_violet');
+  });
+
+  testWidgets('12 reader settings', (tester) async {
+    final c = await setup(tester, prefs: {'reader_hint_strip': true, 'reader_hint_paged': true});
+    await shot(tester, c, const ReaderScreen(sourceId: 'mangalib', mangaId: 'm0', chapterId: 'ch32'), '12_reader_settings',
+        before: () async {
+      await tester.tap(find.byIcon(Icons.tune_rounded));
+    });
+  });
+
+  testWidgets('13 chapter finished', (tester) async {
+    final c = await setup(tester);
+    final ch = chapters();
+    await shot(
+      tester,
+      c,
+      Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: ChapterFinishCard(finished: ch[16], next: ch[15], remaining: 16, onNext: () {}),
+          ),
+        ),
+      ),
+      '13_chapter_finished',
+    );
   });
 }

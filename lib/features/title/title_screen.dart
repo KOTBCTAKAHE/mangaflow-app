@@ -226,8 +226,9 @@ class _Header extends StatelessWidget {
     return SliverAppBar(
       pinned: true,
       stretch: true,
-      expandedHeight: 360 + top * 0.2,
+      expandedHeight: 340 + top * 0.2,
       backgroundColor: context.colors.surface,
+      title: _CollapsedTitle(title: manga.title, expandedHeight: 340 + top * 0.2),
       actions: [
         if (manga.webUrl.isNotEmpty)
           IconButton(
@@ -244,7 +245,7 @@ class _Header extends StatelessWidget {
         background: Stack(fit: StackFit.expand, children: [
           if (manga.coverUrl.isNotEmpty)
             ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+              imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: TileMode.clamp),
               child: Image(image: netImage(withWidth(manga.coverUrl, 160)), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
             ),
           DecoratedBox(
@@ -262,10 +263,12 @@ class _Header extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  context.colors.surfaceContainerLowest.withValues(alpha: 0.35),
+                  context.colors.surfaceContainerLowest.withValues(alpha: 0.55),
+                  context.colors.surfaceContainerLowest.withValues(alpha: 0.25),
+                  context.colors.surfaceContainerLowest.withValues(alpha: 0.85),
                   context.colors.surfaceContainerLowest,
                 ],
-                stops: const [0.0, 0.92],
+                stops: const [0.0, 0.3, 0.72, 0.95],
               ),
             ),
           ),
@@ -282,7 +285,7 @@ class _Header extends StatelessWidget {
                     onTap: () => showFullTitle(context, manga.title,
                         subtitle: manga.authors.join(', '), altTitles: manga.altTitles),
                     child: Text(manga.title,
-                        style: MfType.headline.copyWith(color: context.colors.onSurface, fontSize: 20, height: 1.25),
+                        style: MfType.headline.copyWith(color: context.colors.onSurface, fontSize: 18, height: 1.25),
                         maxLines: 4,
                         overflow: TextOverflow.ellipsis),
                   ),
@@ -309,6 +312,30 @@ class _Header extends StatelessWidget {
 }
 
 /// Frosted bottom bar: Read/Continue + library + favorite, always in reach of the thumb.
+/// Title text that fades into the pinned app bar once the header is collapsed.
+class _CollapsedTitle extends StatelessWidget {
+  const _CollapsedTitle({required this.title, required this.expandedHeight});
+  final String title;
+  final double expandedHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final pos = Scrollable.maybeOf(context)?.position;
+    if (pos == null) return const SizedBox.shrink();
+    final start = expandedHeight - kToolbarHeight - 90;
+    return ListenableBuilder(
+      listenable: pos,
+      builder: (context, _) {
+        final t = pos.hasPixels ? ((pos.pixels - start) / 60).clamp(0.0, 1.0) : 0.0;
+        return Opacity(
+          opacity: t,
+          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: MfType.titleSmall.copyWith(color: context.colors.onSurface)),
+        );
+      },
+    );
+  }
+}
+
 class _ReadBar extends ConsumerWidget {
   const _ReadBar({required this.data, required this.k});
   final TitleData data;

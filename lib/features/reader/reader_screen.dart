@@ -556,6 +556,7 @@ class _TapHintState extends ConsumerState<_TapHint> {
     final prefs = ref.read(prefsProvider);
     if (prefs.getBool(key) ?? false) return;
     unawaited(prefs.setBool(key, true));
+    widget.c.toggleUi(false); // show the zones on a clean page
     setState(() => _visible = true);
     _hide?.cancel();
     _hide = Timer(const Duration(seconds: 4), () {

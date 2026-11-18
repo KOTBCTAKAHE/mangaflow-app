@@ -201,7 +201,7 @@ class _Grid extends ConsumerWidget {
       _ => GridView.builder(
           padding: pad,
           gridDelegate: view == LibraryView.compact
-              ? coverGridDelegate(context, maxCover: 112)
+              ? coverGridDelegate(context, maxCover: 112, subtitle: false)
               : coverGridDelegate(context),
           itemCount: items.length,
           itemBuilder: (context, i) {
