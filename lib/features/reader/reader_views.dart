@@ -222,6 +222,7 @@ class _VerticalReaderState extends State<VerticalReader> with SingleTickerProvid
         child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: _onTapUp,
+        onLongPress: c.longPressPage,
         onDoubleTapDown: (d) => _doubleTap = d,
         onDoubleTap: _onDoubleTap,
         child: InteractiveViewer(
@@ -465,6 +466,7 @@ class _PagedReaderState extends State<PagedReader> {
     return LayoutBuilder(builder: (context, box) {
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onLongPress: c.longPressPage,
         onTapUp: (d) {
           final zone = widget.tapZones && !_zoomed ? tapZone(d.localPosition, box.biggest, rtl: rtl) : 0;
           if (zone == 0) {

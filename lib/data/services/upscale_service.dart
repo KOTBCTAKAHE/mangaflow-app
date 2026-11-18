@@ -155,6 +155,9 @@ class PageUpscaler {
   int processed = 0;
   int totalMs = 0;
 
+  /// Original image file of a page (downloaded copy, or the image cache).
+  static Future<File> sourceFileOf(PageRef p) => _defaultSource(p);
+
   static Future<File> _defaultSource(PageRef p) async =>
       p.localPath != null ? File(p.localPath!) : DefaultCacheManager().getSingleFile(p.url);
 

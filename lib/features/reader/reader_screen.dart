@@ -18,6 +18,7 @@ import '../../widgets/manga_widgets.dart' show showFullTitle;
 import '../../widgets/states.dart';
 import 'reader_controller.dart';
 import 'reader_settings_sheet.dart';
+import 'share_page.dart';
 import 'upscale_compare_screen.dart';
 import 'reader_views.dart';
 
@@ -55,6 +56,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (ref.read(settingsProvider).keepScreenOn) unawaited(WakelockPlus.enable().catchError((Object _) {}));
     _applyVolumeKeys(ref.read(settingsProvider));
     c.setUpscaler(_up.enabled ? _up : null);
+    c.onLongPressPage = () {
+      HapticFeedback.mediumImpact();
+      shareCurrentPage(context, c);
+    };
     ref.listenManual(settingsProvider.select((s) => (s.upscaleMode, s.upscaleQuality)), (_, __) {
       // the provider applies the new settings first (it listens to the same provider)
       scheduleMicrotask(() {
@@ -270,6 +275,13 @@ class _Overlay extends ConsumerWidget {
               ]),
               ),
             ),
+            if (seg != null && seg.pages.isNotEmpty)
+              IconButton(
+                tooltip: 'Отправить страницу',
+                color: fg,
+                icon: const Icon(Icons.share_rounded),
+                onPressed: () => shareCurrentPage(context, c),
+              ),
             if (c.upscaler != null && seg != null && seg.pages.isNotEmpty)
               IconButton(
                 tooltip: 'Сравнить до/после улучшения',

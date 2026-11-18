@@ -263,6 +263,10 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
     await library.setReaderSettings(sourceId, mangaId, {'reading_mode': m.api});
   }
 
+  /// Long-press on a page (the screen shares it).
+  VoidCallback? onLongPressPage;
+  void longPressPage() => onLongPressPage?.call();
+
   /// AI upscaler for pages (null = off).
   PageUpscaler? upscaler;
 
