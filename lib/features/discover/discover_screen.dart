@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/manga.dart';
 import '../../widgets/manga_widgets.dart';
+import '../../widgets/effects.dart';
 import '../../widgets/states.dart';
 import '../home/home_screen.dart' show sourcesProvider;
 import 'filters_sheet.dart';
@@ -123,7 +124,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               ..._idle(context, sources)
             else
               ..._results(context, st),
-            const SliverToBoxAdapter(child: SizedBox(height: MfSpace.huge)),
+            SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, MfSpace.huge))),
           ],
         ),
       ),
@@ -238,6 +239,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               return MangaTile(
                 card: c,
                 heroPrefix: 'search',
+                index: i,
                 subtitle: sourcesLabel.join(' · '),
                 badge: c.alsoIn.isNotEmpty ? '${c.alsoIn.length + 1}' : null,
                 onTap: () => c.alsoIn.isEmpty ? context.push(Routes.title(c.sourceId, c.id)) : _pickSource(c),

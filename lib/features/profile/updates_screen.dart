@@ -70,7 +70,7 @@ class _UpdatesScreenState extends ConsumerState<UpdatesScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _checking ? null : _check,
         icon: _checking
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: MfColors.onAccent))
+            ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: MfColors.onAccent))
             : const Icon(Icons.refresh_rounded),
         label: const Text('Проверить'),
         backgroundColor: MfColors.accent,
@@ -94,7 +94,7 @@ class _UpdatesScreenState extends ConsumerState<UpdatesScreen> {
                     title: Text(u.mangaTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: u.seen ? null : const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: Text('${u.chapterTitle} · ${formatDate(u.detectedAt)}', maxLines: 1),
-                    trailing: u.seen ? null : const Icon(Icons.circle, size: 8, color: MfColors.accent),
+                    trailing: u.seen ? null : Icon(Icons.circle, size: 8, color: MfColors.accent),
                     onTap: () => context.push(Routes.reader(u.sourceId, u.mangaId, u.chapterId)),
                     onLongPress: () => context.push(Routes.title(u.sourceId, u.mangaId)),
                   );

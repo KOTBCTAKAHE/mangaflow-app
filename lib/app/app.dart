@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../core/config.dart';
 import '../core/providers.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/tokens.dart';
 import '../data/repositories/auth_repository.dart';
 
 class MangaFlowApp extends ConsumerStatefulWidget {
@@ -64,7 +65,10 @@ class _MangaFlowAppState extends ConsumerState<MangaFlowApp> with WidgetsBinding
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(settingsProvider.select((s) => s.themeMode));
+    final accent = ref.watch(settingsProvider.select((s) => s.accent));
+    MfColors.palette = accent; // read by tokens during build
     return MaterialApp.router(
+      key: ValueKey(accent), // rebuild every widget that read the old accent
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),

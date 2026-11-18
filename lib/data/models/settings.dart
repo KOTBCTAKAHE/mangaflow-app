@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/tokens.dart';
 import 'library.dart';
 
 enum ImageQuality {
@@ -13,6 +14,18 @@ enum ImageQuality {
   final int? width;
 
   static ImageQuality parse(String? v) => values.firstWhere((q) => q.api == v, orElse: () => ImageQuality.original);
+}
+
+enum LibraryView {
+  grid('grid', 'Сетка'),
+  compact('compact', 'Компактно'),
+  list('list', 'Список');
+
+  const LibraryView(this.api, this.label);
+  final String api;
+  final String label;
+
+  static LibraryView parse(String? v) => values.firstWhere((x) => x.api == v, orElse: () => LibraryView.grid);
 }
 
 enum ReaderBackground {
@@ -52,6 +65,8 @@ class AppSettings {
     this.readerBrightness = 1.0,
     this.downloadWifiOnly = false,
     this.hideReadChapters = false,
+    this.accent = AccentPalette.ember,
+    this.libraryView = LibraryView.grid,
   });
 
   final String apiBaseUrl;
@@ -73,6 +88,8 @@ class AppSettings {
   final double readerBrightness;
   final bool downloadWifiOnly;
   final bool hideReadChapters;
+  final AccentPalette accent;
+  final LibraryView libraryView;
   final DateTime updatedAt;
 
   AppSettings copyWith({
@@ -93,6 +110,8 @@ class AppSettings {
     double? readerBrightness,
     bool? downloadWifiOnly,
     bool? hideReadChapters,
+    AccentPalette? accent,
+    LibraryView? libraryView,
     DateTime? updatedAt,
   }) =>
       AppSettings(
@@ -113,6 +132,8 @@ class AppSettings {
         readerBrightness: readerBrightness ?? this.readerBrightness,
         downloadWifiOnly: downloadWifiOnly ?? this.downloadWifiOnly,
         hideReadChapters: hideReadChapters ?? this.hideReadChapters,
+        accent: accent ?? this.accent,
+        libraryView: libraryView ?? this.libraryView,
         updatedAt: updatedAt ?? DateTime.now().toUtc(),
       );
 
@@ -133,6 +154,8 @@ class AppSettings {
         'notify_updates': notifyUpdates,
         'download_wifi_only': downloadWifiOnly,
         'hide_read_chapters': hideReadChapters,
+        'accent': accent.api,
+        'library_view': libraryView.api,
       };
 
   Map<String, dynamic> toJson() => {
@@ -163,6 +186,8 @@ class AppSettings {
       readerBrightness: (j['reader_brightness'] as num?)?.toDouble().clamp(0.15, 1.0) ?? 1.0,
       downloadWifiOnly: j['download_wifi_only'] as bool? ?? false,
       hideReadChapters: j['hide_read_chapters'] as bool? ?? false,
+      accent: AccentPalette.parse(j['accent'] as String?),
+      libraryView: LibraryView.parse(j['library_view'] as String?),
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }

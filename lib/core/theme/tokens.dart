@@ -18,11 +18,11 @@ abstract final class MfColors {
   static const textSecondary = Color(0xFFA2A7B0);
   static const textTertiary = Color(0xFF6E737D);
 
-  // The one accent
-  static const accent = Color(0xFFFF7A5C);
-  static const accentPressed = Color(0xFFE8664A);
-  static const onAccent = Color(0xFF1A0D09);
-  static const accentSoft = Color(0x29FF7A5C); // 16%
+  // The one accent — user-selectable from [AccentPalette] (still exactly one at a time).
+  static AccentPalette palette = AccentPalette.ember;
+  static Color get accent => palette.color;
+  static Color get onAccent => palette.on;
+  static Color get accentSoft => palette.color.withValues(alpha: 0.16);
 
   // Semantic (used sparingly, desaturated to sit on graphite)
   static const success = Color(0xFF5FC48C);
@@ -42,6 +42,23 @@ abstract final class MfColors {
   static const readerBlack = Color(0xFF000000);
   static const readerGray = Color(0xFF1A1A1A);
   static const readerWhite = Color(0xFFF4F2EE);
+}
+
+/// Accent presets tuned to sit on the graphite neutrals.
+enum AccentPalette {
+  ember('ember', 'Янтарь', Color(0xFFFF7A5C), Color(0xFF1A0D09)),
+  sakura('sakura', 'Сакура', Color(0xFFFF6F9C), Color(0xFF2A0A16)),
+  violet('violet', 'Фиалка', Color(0xFF9B8CFF), Color(0xFF140E2E)),
+  mint('mint', 'Мята', Color(0xFF3DD6A0), Color(0xFF052117)),
+  sky('sky', 'Небо', Color(0xFF55B6FF), Color(0xFF041A2C));
+
+  const AccentPalette(this.api, this.label, this.color, this.on);
+  final String api;
+  final String label;
+  final Color color;
+  final Color on;
+
+  static AccentPalette parse(String? v) => values.firstWhere((p) => p.api == v, orElse: () => AccentPalette.ember);
 }
 
 abstract final class MfSpace {
@@ -95,8 +112,11 @@ abstract final class MfMotion {
 abstract final class MfType {
   static const family = 'Manrope';
 
-  static TextStyle _s(double size, double height, int weight, {double spacing = 0}) => TextStyle(
-        fontFamily: family,
+  /// Expressive display face for big headings (variable, Cyrillic).
+  static const displayFamily = 'Unbounded';
+
+  static TextStyle _s(double size, double height, int weight, {double spacing = 0, String font = family}) => TextStyle(
+        fontFamily: font,
         fontSize: size,
         height: height / size,
         fontWeight: FontWeight.values[(weight ~/ 100) - 1],
@@ -104,9 +124,9 @@ abstract final class MfType {
         letterSpacing: spacing,
       );
 
-  static final display = _s(32, 38, 800, spacing: -0.6);
-  static final headline = _s(24, 30, 750, spacing: -0.3);
-  static final title = _s(19, 25, 700, spacing: -0.2);
+  static final display = _s(30, 36, 700, spacing: -0.8, font: displayFamily);
+  static final headline = _s(22, 28, 650, spacing: -0.5, font: displayFamily);
+  static final title = _s(18, 24, 600, spacing: -0.3, font: displayFamily);
   static final titleSmall = _s(16, 22, 700);
   static final body = _s(15, 22, 500);
   static final bodyStrong = _s(15, 22, 650);

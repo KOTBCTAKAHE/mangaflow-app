@@ -182,7 +182,7 @@ abstract final class AppTheme {
             borderRadius: BorderRadius.circular(MfRadius.md), borderSide: BorderSide(color: border)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(MfRadius.md),
-            borderSide: const BorderSide(color: MfColors.accent, width: 1.5)),
+            borderSide: BorderSide(color: MfColors.accent, width: 1.5)),
         errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(MfRadius.md), borderSide: const BorderSide(color: MfColors.danger)),
       ),

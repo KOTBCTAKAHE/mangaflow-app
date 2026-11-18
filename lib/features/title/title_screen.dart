@@ -15,6 +15,8 @@ import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
 import '../../data/models/reading.dart';
 import '../../data/services/download_manager.dart';
+import '../../widgets/cover_color.dart';
+import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
 import '../downloads_support.dart';
@@ -58,7 +60,12 @@ class _TitleScreenState extends ConsumerState<TitleScreen> {
   @override
   Widget build(BuildContext context) {
     final title = ref.watch(titleProvider(k));
-    return PopScope(
+    final tint = ref.watch(coverTintProvider(title.valueOrNull?.manga.coverUrl ?? '')).valueOrNull;
+    final theme = Theme.of(context);
+    return AnimatedTheme(
+      data: tint == null ? theme : tintedTheme(theme, tint),
+      duration: MfMotion.slow,
+      child: PopScope(
       canPop: !_selecting,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) setState(_selected.clear);
@@ -87,6 +94,7 @@ class _TitleScreenState extends ConsumerState<TitleScreen> {
                 onSelectAll: () => setState(() => _selected.addAll(title.value!.chapters.map((c) => c.id))),
               )
             : null,
+      ),
       ),
     );
   }
@@ -195,7 +203,7 @@ class _Body extends ConsumerWidget {
             );
           },
         ),
-      const SliverToBoxAdapter(child: SizedBox(height: MfSpace.huge * 2)),
+      SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, MfSpace.huge * 2))),
     ]);
   }
 }
@@ -234,6 +242,15 @@ class _Header extends StatelessWidget {
             ),
           DecoratedBox(
             decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(-0.7, 0.2),
+                radius: 1.3,
+                colors: [context.colors.primary.withValues(alpha: 0.30), Colors.transparent],
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -254,7 +271,7 @@ class _Header extends StatelessWidget {
               const SizedBox(width: MfSpace.lg),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(manga.title, style: context.text.headlineSmall, maxLines: 4, overflow: TextOverflow.ellipsis),
+                  Text(manga.title, style: MfType.headline.copyWith(color: context.colors.onSurface, fontSize: 20, height: 1.25), maxLines: 4, overflow: TextOverflow.ellipsis),
                   if (manga.authors.isNotEmpty) ...[
                     const SizedBox(height: MfSpace.xs),
                     Text(manga.authors.join(', '), style: context.text.bodySmall, maxLines: 2),
@@ -329,6 +346,7 @@ class _Actions extends ConsumerWidget {
           active: inLibrary,
           onTap: () async {
             final repo = ref.read(libraryRepositoryProvider);
+            HapticFeedback.mediumImpact();
             if (entry == null) {
               await repo.add(data.manga, totalChapters: data.chapters.length,
                   status: started ? LibraryStatus.reading : LibraryStatus.planned);
@@ -345,6 +363,7 @@ class _Actions extends ConsumerWidget {
           active: entry?.isFavorite ?? false,
           onTap: () async {
             final repo = ref.read(libraryRepositoryProvider);
+            HapticFeedback.lightImpact();
             if (entry == null) {
               await repo.add(data.manga, totalChapters: data.chapters.length);
               await repo.setFavorite(k.sourceId, k.mangaId, true);
@@ -369,7 +388,7 @@ class _SquareButton extends StatelessWidget {
   Widget build(BuildContext context) => Tooltip(
         message: tooltip,
         child: Material(
-          color: active ? MfColors.accentSoft : context.colors.surfaceContainer,
+          color: active ? context.colors.primary.withValues(alpha: 0.16) : context.colors.surfaceContainer,
           borderRadius: BorderRadius.circular(MfRadius.md),
           child: InkWell(
             borderRadius: BorderRadius.circular(MfRadius.md),
@@ -377,7 +396,7 @@ class _SquareButton extends StatelessWidget {
             child: SizedBox(
               width: MfSize.tap,
               height: MfSize.tap,
-              child: Icon(icon, color: active ? MfColors.accent : context.colors.onSurface),
+              child: Icon(icon, color: active ? context.colors.primary : context.colors.onSurface),
             ),
           ),
         ),
@@ -485,7 +504,7 @@ class _ChapterTile extends StatelessWidget {
     ].join(' · ');
 
     return Material(
-      color: selected ? MfColors.accentSoft : Colors.transparent,
+      color: selected ? context.colors.primary.withValues(alpha: 0.16) : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
@@ -498,12 +517,12 @@ class _ChapterTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: MfSpace.md),
                   child: Icon(selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                      color: selected ? MfColors.accent : context.textTertiary),
+                      color: selected ? context.colors.primary : context.textTertiary),
                 )
               else if (inProgress)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(right: MfSpace.md),
-                  child: Icon(Icons.circle, size: 8, color: MfColors.accent),
+                  child: Icon(Icons.circle, size: 8, color: context.colors.primary),
                 ),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +9,9 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
+import '../../data/models/manga.dart';
 import '../../data/models/settings.dart';
+import '../../widgets/effects.dart';
 import '../../widgets/states.dart';
 import 'reader_controller.dart';
 import 'reader_settings_sheet.dart';
@@ -47,8 +50,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   bool _lastUi = true;
+  String? _endBuzzed;
 
   void _onChange() {
+    final seg = c.current;
+    if (seg != null && c.pageCount > 1 && c.page >= c.pageCount - 1 && _endBuzzed != seg.chapter.id) {
+      _endBuzzed = seg.chapter.id;
+      HapticFeedback.lightImpact(); // reached the end of the chapter
+    }
     if (c.uiVisible != _lastUi) {
       _lastUi = c.uiVisible;
       SystemChrome.setEnabledSystemUIMode(c.uiVisible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky);
@@ -135,9 +144,22 @@ class _MiniIndicator extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 6),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              padding: const EdgeInsets.fromLTRB(5, 3, 10, 3),
               decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(MfRadius.pill)),
-              child: Text('${c.page + 1} / ${c.pageCount}', style: MfType.caption.copyWith(color: Colors.white70)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    value: (c.page + 1) / c.pageCount,
+                    strokeWidth: 2,
+                    color: MfColors.accent,
+                    backgroundColor: Colors.white24,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text('${c.page + 1} / ${c.pageCount}', style: MfType.caption.copyWith(color: Colors.white70)),
+              ]),
             ),
           ),
         ),
@@ -166,15 +188,10 @@ class _Overlay extends ConsumerWidget {
             duration: MfMotion.fast,
             child: IgnorePointer(
               ignoring: !visible,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-                    end: top ? Alignment.bottomCenter : Alignment.topCenter,
-                    colors: const [Color(0xF0000000), Color(0x99000000), Color(0x00000000)],
-                    stops: const [0, 0.65, 1],
-                  ),
-                ),
+              child: Glass(
+                color: Colors.black.withValues(alpha: 0.55),
+                blur: 20,
+                border: false,
                 child: child,
               ),
             ),
@@ -185,7 +202,7 @@ class _Overlay extends ConsumerWidget {
       bar(
         top: true,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(4, pad.top + 4, 4, MfSpace.xxl),
+          padding: EdgeInsets.fromLTRB(4, pad.top + 4, 4, MfSpace.sm),
           child: Row(children: [
             const BackButton(color: fg),
             Expanded(
@@ -224,8 +241,14 @@ class _Overlay extends ConsumerWidget {
       bar(
         top: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(MfSpace.sm, MfSpace.xxl, MfSpace.sm, pad.bottom + MfSpace.sm),
-          child: Row(children: [
+          padding: EdgeInsets.fromLTRB(MfSpace.sm, MfSpace.sm, MfSpace.sm, pad.bottom + MfSpace.sm),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (seg != null && c.pageCount > 1)
+              Directionality(
+                textDirection: c.mode.isRtl ? TextDirection.rtl : TextDirection.ltr,
+                child: _ThumbStrip(c: c, pages: seg.pages, visible: visible),
+              ),
+            Row(children: [
             IconButton(
               tooltip: 'Предыдущая глава',
               color: fg,
@@ -246,6 +269,7 @@ class _Overlay extends ConsumerWidget {
               onPressed: c.nextChapter == null ? null : c.goNextChapter,
               icon: const Icon(Icons.skip_next_rounded),
             ),
+          ]),
           ]),
         ),
       ),
@@ -292,5 +316,99 @@ class _PageSliderState extends State<_PageSlider> {
         child: Text('${c.pageCount}', textAlign: TextAlign.center, style: MfType.label.copyWith(color: Colors.white70)),
       ),
     ]);
+  }
+}
+
+/// Network thumbnail URL via the image proxy's `?w=` resize (local files are resized on decode).
+ImageProvider thumbProvider(PageRef p) {
+  if (p.localPath != null) return pageImageProvider(p, cacheWidth: 120);
+  final uri = Uri.tryParse(p.url);
+  if (uri == null) return pageImageProvider(p, cacheWidth: 120);
+  final url = uri.replace(queryParameters: {...uri.queryParameters, 'w': '160'}).toString();
+  return ResizeImage(CachedNetworkImageProvider(url), width: 120);
+}
+
+/// Lazy horizontal strip of page thumbnails; tap to jump.
+class _ThumbStrip extends StatefulWidget {
+  const _ThumbStrip({required this.c, required this.pages, required this.visible});
+  final ReaderController c;
+  final List<PageRef> pages;
+  final bool visible;
+
+  @override
+  State<_ThumbStrip> createState() => _ThumbStripState();
+}
+
+class _ThumbStripState extends State<_ThumbStrip> {
+  static const double _w = 46, _gap = 6;
+  final _ctrl = ScrollController();
+  int? _centered;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _center(int page) {
+    if (_centered == page) return;
+    _centered = page;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_ctrl.hasClients) return;
+      final view = _ctrl.position.viewportDimension;
+      final target = (page * (_w + _gap) - view / 2 + _w / 2).clamp(0.0, _ctrl.position.maxScrollExtent);
+      _ctrl.animateTo(target, duration: MfMotion.base, curve: MfMotion.emphasized);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.c;
+    if (widget.visible) _center(c.page);
+    return SizedBox(
+      height: 72,
+      child: ListView.separated(
+        controller: _ctrl,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: MfSpace.sm, vertical: 4),
+        itemCount: widget.pages.length,
+        separatorBuilder: (_, __) => const SizedBox(width: _gap),
+        itemBuilder: (context, i) {
+          final current = i == c.page;
+          return GestureDetector(
+            onTap: () => c.jumpToPage(i),
+            child: AnimatedContainer(
+              duration: MfMotion.fast,
+              width: _w,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: current ? MfColors.accent : Colors.white12, width: current ? 2 : 1),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: Stack(fit: StackFit.expand, children: [
+                  Image(
+                    image: thumbProvider(widget.pages[i]),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                    errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.white10),
+                    frameBuilder: (_, child, frame, sync) => frame == null && !sync ? const ColoredBox(color: Colors.white10) : child,
+                  ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      width: double.infinity,
+                      color: current ? MfColors.accent : Colors.black54,
+                      child: Text('${i + 1}', textAlign: TextAlign.center,
+                          style: MfType.caption.copyWith(fontSize: 9.5, height: 1.4, color: current ? MfColors.onAccent : Colors.white70)),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }

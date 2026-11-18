@@ -86,7 +86,7 @@ class HistoryScreen extends ConsumerWidget {
                 subtitle: Text('${h.chapterTitle} · ${formatDuration(h.durationSeconds)}', maxLines: 1),
                 trailing: IconButton(
                   tooltip: 'Продолжить',
-                  icon: const Icon(Icons.play_arrow_rounded, color: MfColors.accent),
+                  icon: Icon(Icons.play_arrow_rounded, color: MfColors.accent),
                   onPressed: () => context.push(Routes.reader(h.sourceId, h.mangaId, h.chapterId)),
                 ),
                 onTap: () => context.push(Routes.title(h.sourceId, h.mangaId)),

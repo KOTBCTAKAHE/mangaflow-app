@@ -9,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../data/models/reading.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/services/sync_engine.dart';
+import '../../widgets/effects.dart';
 import 'stats_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -28,7 +29,7 @@ class ProfileScreen extends ConsumerWidget {
           IconButton(tooltip: 'Настройки', onPressed: () => context.push('/settings'), icon: const Icon(Icons.settings_outlined)),
         ],
       ),
-      body: ListView(padding: const EdgeInsets.only(bottom: MfSpace.huge), children: [
+      body: ListView(padding: EdgeInsets.only(bottom: bottomInset(context, MfSpace.huge)), children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.sm, MfSpace.gutter, 0),
           child: switch (auth) {

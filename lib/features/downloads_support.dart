@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +18,7 @@ Future<void> startDownloads(BuildContext context, WidgetRef ref, MangaDetails ma
   if (chapters.isEmpty) return;
   await ensureBackgroundAllowed(context, ref);
   await ref.read(downloadManagerProvider).enqueue(manga: manga, chapters: chapters);
+  HapticFeedback.lightImpact();
   if (context.mounted && chapters.length > 1) showSnack(context, 'В очереди: ${chapters.length} глав');
 }
 

@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/tokens.dart';
 import '../data/models/manga.dart';
+import 'effects.dart';
 import 'states.dart';
 
 /// Cover image with rounded corners, placeholder and graceful failure.
 class MangaCover extends StatelessWidget {
-  const MangaCover({super.key, required this.url, this.width, this.radius = MfRadius.md, this.heroTag, this.thumbWidth = 320});
+  const MangaCover({super.key, required this.url, this.width, this.radius = MfRadius.md, this.heroTag, this.thumbWidth = 320, this.shadow = true});
   final String url;
+  final bool shadow;
   final double? width;
   final double radius;
   final Object? heroTag;
@@ -32,9 +34,19 @@ class MangaCover extends StatelessWidget {
             placeholder: (_, __) => Skeleton(radius: radius),
             errorWidget: (_, __, ___) => _Fallback(radius: radius),
           );
-    img = ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: AspectRatio(aspectRatio: MfSize.coverAspect, child: img),
+    img = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: shadow
+            ? [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.32), blurRadius: 18, offset: const Offset(0, 8)),
+              ]
+            : null,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: AspectRatio(aspectRatio: MfSize.coverAspect, child: img),
+      ),
     );
     if (heroTag != null) img = Hero(tag: heroTag!, child: img);
     return SizedBox(width: width, child: img);
@@ -65,6 +77,8 @@ class MangaTile extends StatelessWidget {
     this.progress,
     this.onLongPress,
     this.heroPrefix = 'cover',
+    this.index,
+    this.showKind = true,
   });
 
   final MangaCard card;
@@ -76,9 +90,14 @@ class MangaTile extends StatelessWidget {
   final double? progress;
   final String heroPrefix;
 
+  /// Position in a list/grid — enables the staggered appear animation.
+  final int? index;
+  final bool showKind;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final kind = card.kind;
+    Widget tile = SizedBox(
       width: width,
       child: Semantics(
         button: true,
@@ -93,27 +112,35 @@ class MangaTile extends StatelessWidget {
             children: [
               Stack(children: [
                 MangaCover(url: card.coverUrl, width: width, heroTag: '$heroPrefix-${card.key}'),
+                if (showKind && kind != null && kind != MangaKind.other)
+                  Positioned(left: MfSpace.sm, bottom: progress != null ? MfSpace.lg : MfSpace.sm, child: KindChip(kind)),
                 if (badge != null)
                   Positioned(
                     top: MfSpace.sm,
-                    left: MfSpace.sm,
+                    right: MfSpace.sm,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: MfSpace.sm, vertical: 3),
-                      decoration: BoxDecoration(color: MfColors.accent, borderRadius: BorderRadius.circular(MfRadius.pill)),
-                      child: Text(badge!, style: MfType.caption.copyWith(color: MfColors.onAccent)),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      constraints: const BoxConstraints(minWidth: 22),
+                      decoration: BoxDecoration(
+                        color: MfColors.accent,
+                        borderRadius: BorderRadius.circular(MfRadius.pill),
+                        boxShadow: [BoxShadow(color: MfColors.accent.withValues(alpha: 0.5), blurRadius: 10)],
+                      ),
+                      child: Text(badge!, textAlign: TextAlign.center, style: MfType.caption.copyWith(color: MfColors.onAccent, fontWeight: FontWeight.w800)),
                     ),
                   ),
                 if (progress != null)
                   Positioned(
-                    left: MfSpace.sm,
-                    right: MfSpace.sm,
-                    bottom: MfSpace.sm,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(MfRadius.pill),
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(MfRadius.md)),
                       child: LinearProgressIndicator(
-                        value: progress,
+                        value: progress!.clamp(0.0, 1.0),
                         minHeight: 4,
-                        backgroundColor: Colors.black.withValues(alpha: 0.45),
+                        color: MfColors.accent,
+                        backgroundColor: Colors.black.withValues(alpha: 0.55),
                       ),
                     ),
                   ),
@@ -129,7 +156,26 @@ class MangaTile extends StatelessWidget {
         ),
       ),
     );
+    tile = PressableScale(child: tile);
+    return index == null ? tile : Appear(index: index!, child: tile);
   }
+}
+
+/// Small frosted label with the title's format (Манга / Манхва / …).
+class KindChip extends StatelessWidget {
+  const KindChip(this.kind, {super.key});
+  final MangaKind kind;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.62),
+          borderRadius: BorderRadius.circular(MfRadius.sm),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+        child: Text(kind.label, style: MfType.caption.copyWith(color: Colors.white, fontSize: 10, height: 1.3)),
+      );
 }
 
 /// Horizontal cover carousel with lazy building.
@@ -157,6 +203,7 @@ class CoverCarousel extends StatelessWidget {
           card: items[i],
           width: _w,
           heroPrefix: '$heroPrefix-$i',
+          index: i,
           subtitle: subtitleOf?.call(items[i]),
           onTap: () => onTap(items[i]),
         ),

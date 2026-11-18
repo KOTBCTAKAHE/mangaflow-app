@@ -7,6 +7,8 @@ import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
+import '../../data/models/settings.dart';
+import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
 import 'library_actions.dart';
@@ -68,6 +70,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final collections = ref.watch(collectionsProvider).valueOrNull ?? const <Collection>[];
     final sort = ref.watch(librarySortProvider);
     final query = ref.watch(libraryQueryProvider);
+    final view = ref.watch(settingsProvider.select((x) => x.libraryView));
 
     final tabs = <_Tab>[
       _Tab('Все', (_) => true),
@@ -98,6 +101,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 if (!_searching) ref.read(libraryQueryProvider.notifier).state = '';
               },
             ),
+            IconButton(
+              tooltip: 'Вид: ${view.label}',
+              icon: Icon(switch (view) {
+                LibraryView.grid => Icons.grid_view_rounded,
+                LibraryView.compact => Icons.apps_rounded,
+                LibraryView.list => Icons.view_agenda_outlined,
+              }),
+              onPressed: () {
+                final next = LibraryView.values[(view.index + 1) % LibraryView.values.length];
+                ref.read(settingsProvider.notifier).update((x) => x.copyWith(libraryView: next));
+              },
+            ),
             PopupMenuButton<LibrarySort>(
               tooltip: 'Сортировка',
               icon: const Icon(Icons.sort_rounded),
@@ -121,6 +136,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               _Grid(
                 items: _sorted(all.where(t.test).toList(), sort, query),
                 emptyAll: all.isEmpty,
+                view: view,
               ),
           ]),
         ),
@@ -130,9 +146,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 }
 
 class _Grid extends ConsumerWidget {
-  const _Grid({required this.items, required this.emptyAll});
+  const _Grid({required this.items, required this.emptyAll, required this.view});
   final List<LibraryEntry> items;
   final bool emptyAll;
+  final LibraryView view;
+
+  static String? _chapterLabel(LibraryEntry e) {
+    final read = e.lastChapterNumber;
+    if (read == null) return null;
+    final total = e.totalChapters;
+    return 'гл. ${read % 1 == 0 ? read.toInt() : read}${total != null ? ' из $total' : ''}';
+  }
+
+  static double? _progress(LibraryEntry e) {
+    final read = e.lastChapterNumber, total = e.totalChapters;
+    if (read == null || total == null || total <= 0) return null;
+    return (read / total).clamp(0.0, 1.0);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -146,28 +176,110 @@ class _Grid extends ConsumerWidget {
             )
           : const EmptyState(icon: Icons.filter_list_off_rounded, title: 'Здесь пока ничего нет');
     }
-    return RefreshIndicator(
-      onRefresh: () => ref.read(syncEngineProvider).sync(),
-      child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.lg, MfSpace.gutter, MfSpace.huge),
-        gridDelegate: coverGridDelegate(context),
-        itemCount: items.length,
-        itemBuilder: (context, i) {
-          final e = items[i];
-          final total = e.totalChapters;
-          final read = e.lastChapterNumber;
-          return MangaTile(
-            card: e.toCard(),
-            heroPrefix: 'lib',
-            badge: e.unreadUpdates > 0 ? '+${e.unreadUpdates}' : null,
-            subtitle: [
-              e.status.label,
-              if (read != null) 'гл. ${read % 1 == 0 ? read.toInt() : read}${total != null ? ' из $total' : ''}',
-            ].join(' · '),
-            onTap: () => context.push(Routes.title(e.sourceId, e.mangaId)),
-            onLongPress: () => showEntryActions(context, ref, e),
-          );
-        },
+    final pad = EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.lg, MfSpace.gutter, bottomInset(context, MfSpace.huge));
+    void open(LibraryEntry e) => context.push(Routes.title(e.sourceId, e.mangaId));
+
+    final Widget body = switch (view) {
+      LibraryView.list => ListView.separated(
+          padding: pad,
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(height: MfSpace.md),
+          itemBuilder: (context, i) {
+            final e = items[i];
+            return Appear(
+              index: i,
+              child: _ListRow(
+                entry: e,
+                chapter: _chapterLabel(e),
+                progress: _progress(e),
+                onTap: () => open(e),
+                onLongPress: () => showEntryActions(context, ref, e),
+              ),
+            );
+          },
+        ),
+      _ => GridView.builder(
+          padding: pad,
+          gridDelegate: view == LibraryView.compact
+              ? coverGridDelegate(context, maxCover: 112)
+              : coverGridDelegate(context),
+          itemCount: items.length,
+          itemBuilder: (context, i) {
+            final e = items[i];
+            final compact = view == LibraryView.compact;
+            return MangaTile(
+              card: e.toCard(),
+              heroPrefix: 'lib',
+              index: i,
+              showKind: !compact,
+              badge: e.unreadUpdates > 0 ? '+${e.unreadUpdates}' : null,
+              progress: _progress(e),
+              subtitle: compact ? null : [e.status.label, if (_chapterLabel(e) != null) _chapterLabel(e)!].join(' · '),
+              onTap: () => open(e),
+              onLongPress: () => showEntryActions(context, ref, e),
+            );
+          },
+        ),
+    };
+    return RefreshIndicator(onRefresh: () => ref.read(syncEngineProvider).sync(), child: body);
+  }
+}
+
+class _ListRow extends StatelessWidget {
+  const _ListRow({required this.entry, required this.onTap, required this.onLongPress, this.chapter, this.progress});
+  final LibraryEntry entry;
+  final String? chapter;
+  final double? progress;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = entry;
+    return PressableScale(
+      scale: 0.98,
+      child: Material(
+        color: context.colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(MfRadius.lg),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.all(MfSpace.sm),
+            child: Row(children: [
+              MangaCover(url: e.coverUrl, width: 64, thumbWidth: 160, radius: MfRadius.sm, heroTag: 'lib-row-${e.key}'),
+              const SizedBox(width: MfSpace.md),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(
+                      child: Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MfType.label.copyWith(color: context.colors.onSurface)),
+                    ),
+                    if (e.isFavorite) Icon(Icons.favorite_rounded, size: 16, color: MfColors.accent),
+                  ]),
+                  const SizedBox(height: MfSpace.xs),
+                  Text([e.status.label, if (chapter != null) chapter!].join(' · '), style: mutedCaption(context)),
+                  if (progress != null) ...[
+                    const SizedBox(height: MfSpace.sm),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(MfRadius.pill),
+                      child: LinearProgressIndicator(value: progress, minHeight: 4, color: MfColors.accent),
+                    ),
+                  ],
+                ]),
+              ),
+              if (e.unreadUpdates > 0) ...[
+                const SizedBox(width: MfSpace.md),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: MfColors.accentSoft, borderRadius: BorderRadius.circular(MfRadius.pill)),
+                  child: Text('+${e.unreadUpdates}', style: MfType.caption.copyWith(color: MfColors.accent, fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ]),
+          ),
+        ),
       ),
     );
   }

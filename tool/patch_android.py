@@ -100,8 +100,70 @@ def copy_icons() -> None:
             shutil.copyfile(src, dst)
 
 
+GRAPHITE = "#0D0E11"
+
+_LAUNCH = f"""<?xml version="1.0" encoding="utf-8"?>
+<!-- MangaFlow dark splash: graphite background + centered app icon. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><color android:color="{GRAPHITE}" /></item>
+    <item android:width="96dp" android:height="96dp" android:gravity="center">
+        <bitmap android:gravity="fill" android:src="@mipmap/ic_launcher" />
+    </item>
+</layer-list>
+"""
+
+_STYLES = f"""<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:statusBarColor">{GRAPHITE}</item>
+        <item name="android:navigationBarColor">{GRAPHITE}</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/mf_graphite</item>
+    </style>
+    <color name="mf_graphite">{GRAPHITE}</color>
+</resources>
+"""
+
+_STYLES_V31 = f"""<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">{GRAPHITE}</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:statusBarColor">{GRAPHITE}</item>
+        <item name="android:navigationBarColor">{GRAPHITE}</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/mf_graphite</item>
+    </style>
+    <color name="mf_graphite">{GRAPHITE}</color>
+</resources>
+"""
+
+
+def write_splash() -> None:
+    res = ANDROID / "app/src/main/res"
+    if not res.exists():
+        return
+    files = {
+        "drawable/launch_background.xml": _LAUNCH,
+        "drawable-v21/launch_background.xml": _LAUNCH,
+        "values/styles.xml": _STYLES,
+        "values-night/styles.xml": _STYLES,
+        "values-v31/styles.xml": _STYLES_V31,
+        "values-night-v31/styles.xml": _STYLES_V31,
+    }
+    for rel, content in files.items():
+        f = res / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(content, encoding="utf-8")
+
+
 if __name__ == "__main__":
     patch_manifest()
     patch_gradle()
     copy_icons()
+    write_splash()
     print("android project patched")

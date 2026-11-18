@@ -67,13 +67,8 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(color: context.colors.surfaceContainer, shape: BoxShape.circle),
-              child: Icon(icon, size: 32, color: context.colors.onSurfaceVariant),
-            ),
-            const SizedBox(height: MfSpace.xl),
+            EmptyIllustration(icon: icon),
+            const SizedBox(height: MfSpace.lg),
             Text(title, style: context.text.titleMedium, textAlign: TextAlign.center),
             if (message != null) ...[
               const SizedBox(height: MfSpace.sm),
@@ -85,6 +80,104 @@ class EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Small composed illustration: accent glow, a fanned stack of "covers" and an icon badge.
+class EmptyIllustration extends StatelessWidget {
+  const EmptyIllustration({super.key, required this.icon, this.size = 148});
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.colors;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 700),
+      curve: MfMotion.emphasized,
+      builder: (context, t, _) => SizedBox(
+        width: size,
+        height: size * 0.86,
+        child: Stack(alignment: Alignment.center, children: [
+          CustomPaint(
+            size: Size(size, size * 0.86),
+            painter: _EmptyPainter(
+              accent: scheme.primary,
+              card: scheme.surfaceContainerHigh,
+              cardEdge: scheme.outlineVariant,
+              t: t,
+            ),
+          ),
+          Transform.translate(
+            offset: Offset(0, size * 0.08 + (1 - t) * 10),
+            child: Opacity(
+              opacity: t,
+              child: Container(
+                width: size * 0.34,
+                height: size * 0.34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [scheme.primary, Color.lerp(scheme.primary, Colors.white, 0.3)!],
+                    begin: Alignment.bottomLeft,
+                    end: Alignment.topRight,
+                  ),
+                  boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.45), blurRadius: 18, offset: const Offset(0, 6))],
+                ),
+                child: Icon(icon, size: size * 0.17, color: scheme.onPrimary),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _EmptyPainter extends CustomPainter {
+  _EmptyPainter({required this.accent, required this.card, required this.cardEdge, required this.t});
+  final Color accent, card, cardEdge;
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height * 0.52);
+    // glow
+    canvas.drawCircle(
+      c,
+      size.width * 0.5,
+      Paint()
+        ..shader = RadialGradient(colors: [accent.withValues(alpha: 0.22 * t), accent.withValues(alpha: 0)])
+            .createShader(Rect.fromCircle(center: c, radius: size.width * 0.5)),
+    );
+    // three fanned covers
+    final w = size.width * 0.34, h = w / 0.7;
+    for (final (angle, dx, shade) in [(-0.28, -0.22, 0.0), (0.26, 0.22, 0.0), (0.0, 0.0, 0.06)]) {
+      canvas.save();
+      canvas.translate(c.dx + dx * size.width * t, c.dy - size.height * 0.06);
+      canvas.rotate(angle * t);
+      final r = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: w, height: h), const Radius.circular(10));
+      canvas.drawRRect(r.shift(const Offset(0, 6)), Paint()..color = Colors.black.withValues(alpha: 0.18 * t)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+      canvas.drawRRect(
+        r,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color.lerp(card, Colors.white, 0.04 + shade)!, card],
+          ).createShader(r.outerRect),
+      );
+      canvas.drawRRect(r, Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = cardEdge.withValues(alpha: 0.6));
+      // "text lines" on the card
+      final line = Paint()..color = cardEdge.withValues(alpha: 0.55)..strokeCap = StrokeCap.round..strokeWidth = 4;
+      canvas.drawLine(Offset(-w * 0.3, -h * 0.32), Offset(w * 0.22, -h * 0.32), line);
+      canvas.drawLine(Offset(-w * 0.3, -h * 0.2), Offset(w * 0.05, -h * 0.2), line);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_EmptyPainter old) => old.t != t || old.accent != accent || old.card != card;
 }
 
 class ErrorState extends StatelessWidget {

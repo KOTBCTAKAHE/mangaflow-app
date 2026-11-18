@@ -11,6 +11,7 @@ import 'app/app.dart';
 import 'app/router.dart';
 import 'core/providers.dart';
 import 'core/storage/database.dart';
+import 'core/theme/tokens.dart';
 import 'data/services/background.dart';
 import 'data/services/downloads/download_runtime.dart';
 import 'data/services/notifications.dart';
@@ -51,6 +52,7 @@ Future<void> main() async {
     prefsProvider.overrideWithValue(prefs),
   ]);
   await container.read(authProvider.notifier).restore();
+  MfColors.palette = container.read(settingsProvider).accent;
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     DownloadService.init();

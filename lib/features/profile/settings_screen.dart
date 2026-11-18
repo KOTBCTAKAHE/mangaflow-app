@@ -64,6 +64,21 @@ class SettingsScreen extends ConsumerWidget {
             onSelectionChanged: (v) => ctrl.update((x) => x.copyWith(themeMode: v.first)),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.lg, MfSpace.gutter, MfSpace.xs),
+          child: Text('Акцентный цвет', style: context.text.bodySmall),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter - 4),
+          child: Wrap(spacing: MfSpace.xs, children: [
+            for (final p in AccentPalette.values)
+              _AccentSwatch(
+                palette: p,
+                selected: s.accent == p,
+                onTap: () => ctrl.update((x) => x.copyWith(accent: p)),
+              ),
+          ]),
+        ),
         const _Header('Читалка'),
         ListTile(
           leading: const Icon(Icons.chrome_reader_mode_outlined),
@@ -337,5 +352,42 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.xxl, MfSpace.gutter, MfSpace.sm),
         child: Text(text.toUpperCase(), style: context.text.labelSmall),
+      );
+}
+
+class _AccentSwatch extends StatelessWidget {
+  const _AccentSwatch({required this.palette, required this.selected, required this.onTap});
+  final AccentPalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: selected,
+        label: palette.label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(MfRadius.md),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              AnimatedContainer(
+                duration: MfMotion.base,
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: palette.color,
+                  border: Border.all(color: selected ? context.colors.onSurface : Colors.transparent, width: 2.5),
+                  boxShadow: selected ? [BoxShadow(color: palette.color.withValues(alpha: 0.5), blurRadius: 14)] : null,
+                ),
+                child: selected ? Icon(Icons.check_rounded, color: palette.on, size: 22) : null,
+              ),
+              const SizedBox(height: 4),
+              Text(palette.label, style: MfType.caption.copyWith(color: context.textTertiary)),
+            ]),
+          ),
+        ),
       );
 }

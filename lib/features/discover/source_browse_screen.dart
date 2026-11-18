@@ -146,6 +146,7 @@ class _SourceBrowseScreenState extends ConsumerState<SourceBrowseScreen> {
                 itemBuilder: (context, i) => MangaTile(
                   card: _items[i],
                   heroPrefix: 'src',
+                  index: i,
                   onTap: () => context.push(Routes.title(_items[i].sourceId, _items[i].id)),
                 ),
               ),

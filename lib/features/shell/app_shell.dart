@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
+import '../../widgets/effects.dart';
 import '../update_dialog.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -32,7 +33,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final unseen = ref.watch(unseenUpdatesProvider).valueOrNull ?? 0;
     return Scaffold(
       body: shell,
-      bottomNavigationBar: NavigationBar(
+      extendBody: true, // content scrolls under the frosted bar
+      bottomNavigationBar: Glass(
+        child: NavigationBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         selectedIndex: shell.currentIndex,
         onDestinationSelected: (i) {
           HapticFeedback.selectionClick();
@@ -48,6 +54,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
           const NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Профиль'),
         ],
+      ),
       ),
     );
   }
