@@ -91,7 +91,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final key = (seg.index, c.page, seg.pages.length);
     if (key == _focused) return;
     _focused = key;
-    u.focus(seg.pages, c.page, ahead: u.quality == UpscaleQuality.max ? 2 : 4);
+    u.focus(seg.pages, c.page, ahead: switch (u.quality) { UpscaleQuality.fast => 6, UpscaleQuality.balanced => 4, UpscaleQuality.max => 2 });
   }
 
   void _onChange() {

@@ -47,7 +47,8 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
     private class Model(val asset: String, val spec: ModelSpec)
 
     private val models = mapOf(
-        "fast" to Model("assets/models/waifu2x_cunet_art_noise1_scale2x.onnx", ModelSpec(scale = 2, offset = 36, tile = 196)),
+        "fast" to Model("assets/models/waifu2x_upconv7_art_noise1_scale2x.onnx", ModelSpec(scale = 2, offset = 14, tile = 256)),
+        "balanced" to Model("assets/models/waifu2x_cunet_art_noise1_scale2x.onnx", ModelSpec(scale = 2, offset = 36, tile = 196)),
         "max" to Model("assets/models/waifu2x_swin_art_scan_noise1_scale2x.onnx", ModelSpec(scale = 2, offset = 16, tile = 160)),
     )
 
@@ -160,24 +161,73 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
         )
     }
 
+    private fun options(model: Model, xnnpack: Boolean): OrtSession.SessionOptions {
+        val cores = max(1, min(4, Runtime.getRuntime().availableProcessors() - 2))
+        return OrtSession.SessionOptions().apply {
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            setInterOpNumThreads(1)
+            // Tiles have a fixed size: static shapes let ORT pre-plan memory and fuse more.
+            addFreeDimensionOverrideByName("batch_size", 1)
+            addFreeDimensionOverrideByName("input_height", model.spec.tile.toLong())
+            addFreeDimensionOverrideByName("input_width", model.spec.tile.toLong())
+            // Don't busy-wait between tiles: saves battery and keeps the UI thread smooth.
+            addConfigEntry("session.intra_op.allow_spinning", "0")
+            if (xnnpack) {
+                setIntraOpNumThreads(1) // XNNPACK has its own thread pool
+                addXnnpack(mapOf("intra_op_num_threads" to cores.toString()))
+            } else {
+                setIntraOpNumThreads(cores)
+            }
+        }
+    }
+
+    private fun timeTile(ses: OrtSession, e: OrtEnvironment, tile: Int): Long {
+        val buf = FloatArray(3 * tile * tile) { ((it * 2654435761L) and 0xFFL).toFloat() / 255f }
+        fun once() = OnnxTensor.createTensor(e, FloatBuffer.wrap(buf), longArrayOf(1, 3, tile.toLong(), tile.toLong())).use { t ->
+            ses.run(mapOf("x" to t)).close()
+        }
+        once() // warm-up
+        val t0 = SystemClock.elapsedRealtime()
+        once()
+        return SystemClock.elapsedRealtime() - t0
+    }
+
+    /**
+     * Loads the model and picks the faster CPU backend for this phone (XNNPACK vs ORT's
+     * default kernels) with a one-time micro-benchmark; the choice is remembered.
+     */
     private fun session(key: String, model: Model): OrtSession {
         session?.let { if (sessionModel == key) return it }
         releaseSession()
         val e = env ?: OrtEnvironment.getEnvironment().also { env = it }
         val loader = FlutterInjector.instance().flutterLoader()
         val bytes = context.assets.open(loader.getLookupKeyForAsset(model.asset)).use { it.readBytes() }
-        val threads = max(1, min(4, Runtime.getRuntime().availableProcessors() - 2))
-        val opts = OrtSession.SessionOptions().apply {
-            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            setIntraOpNumThreads(threads)
-            setInterOpNumThreads(1)
-            // Don't busy-wait between tiles: saves battery and keeps the UI thread smooth.
-            addConfigEntry("session.intra_op.allow_spinning", "0")
+        val prefs = context.getSharedPreferences("mf_upscale", Context.MODE_PRIVATE)
+        val prefKey = "backend_${key}_v1"
+        val chosen = prefs.getString(prefKey, null)
+        val ses = when (chosen) {
+            "xnnpack" -> runCatching { e.createSession(bytes, options(model, true)) }.getOrNull()
+            "cpu" -> e.createSession(bytes, options(model, false))
+            else -> null
+        } ?: run {
+            val cpu = e.createSession(bytes, options(model, false))
+            val cpuMs = timeTile(cpu, e, model.spec.tile)
+            val xnn = runCatching { e.createSession(bytes, options(model, true)) }.getOrNull()
+            val xnnMs = xnn?.let { runCatching { timeTile(it, e, model.spec.tile) }.getOrNull() }
+            Log.i(TAG, "backend benchmark $key: cpu=${cpuMs}ms xnnpack=${xnnMs}ms")
+            if (xnn != null && xnnMs != null && xnnMs < cpuMs * 0.9) {
+                cpu.close()
+                prefs.edit().putString(prefKey, "xnnpack").apply()
+                xnn
+            } else {
+                xnn?.close()
+                prefs.edit().putString(prefKey, "cpu").apply()
+                cpu
+            }
         }
-        return e.createSession(bytes, opts).also {
-            session = it
-            sessionModel = key
-        }
+        session = ses
+        sessionModel = key
+        return ses
     }
 
     private fun releaseSession() {

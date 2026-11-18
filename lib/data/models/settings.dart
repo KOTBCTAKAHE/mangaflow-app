@@ -42,7 +42,8 @@ enum UpscaleMode {
 }
 
 enum UpscaleQuality {
-  fast('fast', 'Быстро', 'waifu2x CUNet'),
+  fast('fast', 'Быстро', 'waifu2x UpConv7'),
+  balanced('balanced', 'Баланс', 'waifu2x CUNet'),
   max('max', 'Максимум', 'waifu2x Swin (сканы манги)');
 
   const UpscaleQuality(this.api, this.label, this.model);

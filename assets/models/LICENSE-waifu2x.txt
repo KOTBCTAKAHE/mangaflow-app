@@ -1,4 +1,4 @@
-waifu2x models (CUNet art, Swin-UNet art_scan) from https://github.com/nagadomi/nunif
+waifu2x models (UpConv7 art, CUNet art, Swin-UNet art_scan) from https://github.com/nagadomi/nunif
 Weights stored as fp16 (computed in fp32); otherwise unmodified.
 
 The MIT License

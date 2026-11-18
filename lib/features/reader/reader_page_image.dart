@@ -71,7 +71,8 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
           );
         }
         if (st.status != UpscaleStatus.running) return img;
-        return Stack(children: [
+        // passthrough: keep the tight constraints of paged mode, or the page sticks to the top
+        return Stack(fit: StackFit.passthrough, children: [
           img,
           const Positioned(top: MfSpace.sm, right: MfSpace.sm, child: _UpscaleBadge()),
         ]);

@@ -55,11 +55,7 @@ class UpscaleSettingsPanel extends ConsumerWidget {
               showSelectedIcon: false,
               segments: [
                 for (final q in UpscaleQuality.values)
-                  ButtonSegment(
-                    value: q,
-                    label: Text(q.label),
-                    icon: Icon(q == UpscaleQuality.fast ? Icons.bolt_rounded : Icons.auto_awesome_rounded, size: 18),
-                  ),
+                  ButtonSegment(value: q, label: Text(q.label)),
               ],
               selected: {s.upscaleQuality},
               onSelectionChanged: (v) => ctrl.update((x) => x.copyWith(upscaleQuality: v.first)),
@@ -67,9 +63,11 @@ class UpscaleSettingsPanel extends ConsumerWidget {
           ),
           const SizedBox(height: MfSpace.xs),
           Text(
-            s.upscaleQuality == UpscaleQuality.fast
-                ? '${UpscaleQuality.fast.model}: отличное качество, примерно в 2,5 раза быстрее.'
-                : '${UpscaleQuality.max.model}: лучший результат для текста и скринтона, но медленнее.',
+            switch (s.upscaleQuality) {
+              UpscaleQuality.fast => '${UpscaleQuality.fast.model}: самый быстрый, почти как «Баланс» по качеству.',
+              UpscaleQuality.balanced => '${UpscaleQuality.balanced.model}: чище линии и текст, примерно в 2,5 раза медленнее.',
+              UpscaleQuality.max => '${UpscaleQuality.max.model}: лучший результат для текста и скринтона, самый медленный.',
+            },
             style: MfType.caption.copyWith(color: context.textTertiary),
           ),
           if (onEnhanceChapter != null) ...[
