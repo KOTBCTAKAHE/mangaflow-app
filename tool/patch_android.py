@@ -103,6 +103,13 @@ def patch_gradle() -> None:
             text = re.sub(r"compileOptions\s*\{", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", text, count=1)
         if "desugar_jdk_libs" not in text:
             text += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+        if "onnxruntime-android" not in text:
+            text = text.replace(
+                'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
+                'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n'
+                '    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.24.3")\n'
+                '    testImplementation("junit:junit:4.13.2")',
+            )
         if "MF_KEYSTORE" not in text:
             text = re.sub(r"    buildTypes \{.*?\n    \}\n", lambda _: SIGN_KTS + "\n", text, count=1, flags=re.S)
         kts.write_text(text)
@@ -168,49 +175,19 @@ _STYLES_V31 = f"""<?xml version="1.0" encoding="utf-8"?>
 """
 
 
-_MAIN_ACTIVITY = """package com.mangaflow.mangaflow
-
-import android.view.KeyEvent
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-
-/** Volume buttons turn pages in the reader while enabled from Dart (mangaflow/volume_keys). */
-class MainActivity : FlutterActivity() {
-    private var volumeKeys = false
-    private var channel: MethodChannel? = null
-
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/volume_keys").also {
-            it.setMethodCallHandler { call, result ->
-                if (call.method == "setEnabled") {
-                    volumeKeys = call.arguments as? Boolean ?: false
-                    result.success(null)
-                } else {
-                    result.notImplemented()
-                }
-            }
-        }
-    }
-
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        val code = event.keyCode
-        if (volumeKeys && (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN)) {
-            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                channel?.invokeMethod("key", if (code == KeyEvent.KEYCODE_VOLUME_UP) "up" else "down")
-            }
-            return true // swallow: no system volume change / slider while reading
-        }
-        return super.dispatchKeyEvent(event)
-    }
-}
-"""
 
 
-def write_main_activity() -> None:
-    for f in ANDROID.glob("app/src/main/kotlin/**/MainActivity.kt"):
-        f.write_text(_MAIN_ACTIVITY, encoding="utf-8")
+def copy_native_sources() -> None:
+    """Kotlin sources live in tool/android (main + JVM unit tests) and are copied into the project."""
+    pkg = "com/mangaflow/mangaflow"
+    for kind in ("main", "test"):
+        src_root = ROOT / "tool/android" / kind
+        dst_root = ANDROID / f"app/src/{kind}/kotlin" / pkg
+        for f in src_root.rglob("*.kt"):
+            dst = dst_root / f.relative_to(src_root)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst)
+    shutil.copyfile(ROOT / "tool/android/proguard-rules.pro", ANDROID / "app/proguard-rules.pro")
 
 
 def write_splash() -> None:
@@ -236,5 +213,5 @@ if __name__ == "__main__":
     patch_gradle()
     copy_icons()
     write_splash()
-    write_main_activity()
+    copy_native_sources()
     print("android project patched")

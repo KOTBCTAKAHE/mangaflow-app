@@ -11,6 +11,7 @@ import '../../data/models/settings.dart';
 import '../../data/repositories/catalog_repository.dart';
 import '../../data/repositories/library_repository.dart';
 import '../../data/repositories/reading_repository.dart';
+import '../../data/services/upscale_service.dart';
 import '../../widgets/net_image.dart';
 
 /// A chapter with its resolved pages (network URLs or local files).
@@ -260,6 +261,15 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
     _notify();
     await prefs.setReadingMode(sourceId, mangaId, m);
     await library.setReaderSettings(sourceId, mangaId, {'reading_mode': m.api});
+  }
+
+  /// AI upscaler for pages (null = off).
+  PageUpscaler? upscaler;
+
+  void setUpscaler(PageUpscaler? u) {
+    if (identical(u, upscaler)) return;
+    upscaler = u;
+    _notify();
   }
 
   /// Webtoon auto-scroll: runs while the overlay is hidden.

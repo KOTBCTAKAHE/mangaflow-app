@@ -191,6 +191,7 @@ class _VerticalReaderState extends State<VerticalReader> with SingleTickerProvid
         return _ChapterEndCard(c: c, segment: seg);
       }
       return ReaderPageImage(
+        upscaler: c.upscaler,
         page: seg.pages[item.page],
         fit: BoxFit.fitWidth,
         cacheWidth: _cacheWidth(context),
@@ -499,11 +500,11 @@ class _PagedReaderState extends State<PagedReader> {
                 if (z != _zoomed) setState(() => _zoomed = z);
               },
               child: pages.length == 1
-                  ? ReaderPageImage(page: pages.first, fit: BoxFit.contain, cacheWidth: _cacheWidth(context))
+                  ? ReaderPageImage(page: pages.first, upscaler: c.upscaler, fit: BoxFit.contain, cacheWidth: _cacheWidth(context))
                   : Row(children: [
                       for (final p in ordered)
                         Expanded(
-                          child: ReaderPageImage(page: p, fit: BoxFit.contain, cacheWidth: _cacheWidth(context) ~/ 2),
+                          child: ReaderPageImage(page: p, upscaler: c.upscaler, fit: BoxFit.contain, cacheWidth: _cacheWidth(context) ~/ 2),
                         ),
                     ]),
             );

@@ -4,14 +4,17 @@ import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import com.mangaflow.mangaflow.upscale.UpscalePlugin
 
 /** Volume buttons turn pages in the reader while enabled from Dart (mangaflow/volume_keys). */
 class MainActivity : FlutterActivity() {
     private var volumeKeys = false
     private var channel: MethodChannel? = null
+    private var upscale: UpscalePlugin? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        upscale = UpscalePlugin(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/volume_keys").also {
             it.setMethodCallHandler { call, result ->
                 if (call.method == "setEnabled") {

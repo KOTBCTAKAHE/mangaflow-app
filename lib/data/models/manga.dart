@@ -294,9 +294,16 @@ class TitleData {
 }
 
 class PageRef {
-  const PageRef({required this.index, required this.url, this.localPath});
+  const PageRef({required this.index, required this.url, this.localPath, this.key});
   final int index;
   final String url;
+
+  /// Stable identity (`source/chapter/index`) — signed URLs change daily, this does not.
+  final String? key;
+
+  String get stableKey => key ?? localPath ?? url;
+
+  PageRef withKey(String k) => PageRef(index: index, url: url, localPath: localPath, key: k);
 
   /// Set when the page is available on disk (downloaded chapter).
   final String? localPath;

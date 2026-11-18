@@ -28,6 +28,31 @@ enum LibraryView {
   static LibraryView parse(String? v) => values.firstWhere((x) => x.api == v, orElse: () => LibraryView.grid);
 }
 
+/// On-device AI upscaling of pages (waifu2x on ONNX Runtime).
+enum UpscaleMode {
+  off('off', 'Выключено'),
+  auto('auto', 'Авто'),
+  always('always', 'Всегда');
+
+  const UpscaleMode(this.api, this.label);
+  final String api;
+  final String label;
+
+  static UpscaleMode parse(String? v) => values.firstWhere((x) => x.api == v, orElse: () => UpscaleMode.off);
+}
+
+enum UpscaleQuality {
+  fast('fast', 'Быстро', 'waifu2x CUNet'),
+  max('max', 'Максимум', 'waifu2x Swin (сканы манги)');
+
+  const UpscaleQuality(this.api, this.label, this.model);
+  final String api;
+  final String label;
+  final String model;
+
+  static UpscaleQuality parse(String? v) => values.firstWhere((x) => x.api == v, orElse: () => UpscaleQuality.fast);
+}
+
 enum ReaderBackground {
   black('black', 'Чёрный'),
   gray('gray', 'Графит'),
@@ -71,6 +96,8 @@ class AppSettings {
     this.volumeKeysInverted = false,
     this.readerWarmth = 0,
     this.autoScrollSpeed = 120,
+    this.upscaleMode = UpscaleMode.off,
+    this.upscaleQuality = UpscaleQuality.fast,
   });
 
   final String apiBaseUrl;
@@ -106,6 +133,10 @@ class AppSettings {
 
   /// Webtoon auto-scroll speed in logical px/s.
   final double autoScrollSpeed;
+
+  /// AI upscaling of pages on the phone.
+  final UpscaleMode upscaleMode;
+  final UpscaleQuality upscaleQuality;
   final DateTime updatedAt;
 
   AppSettings copyWith({
@@ -132,6 +163,8 @@ class AppSettings {
     bool? volumeKeysInverted,
     double? readerWarmth,
     double? autoScrollSpeed,
+    UpscaleMode? upscaleMode,
+    UpscaleQuality? upscaleQuality,
     DateTime? updatedAt,
   }) =>
       AppSettings(
@@ -158,6 +191,8 @@ class AppSettings {
         volumeKeysInverted: volumeKeysInverted ?? this.volumeKeysInverted,
         readerWarmth: readerWarmth ?? this.readerWarmth,
         autoScrollSpeed: autoScrollSpeed ?? this.autoScrollSpeed,
+        upscaleMode: upscaleMode ?? this.upscaleMode,
+        upscaleQuality: upscaleQuality ?? this.upscaleQuality,
         updatedAt: updatedAt ?? DateTime.now().toUtc(),
       );
 
@@ -183,6 +218,8 @@ class AppSettings {
         'volume_keys': volumeKeys,
         'volume_keys_inverted': volumeKeysInverted,
         'auto_scroll_speed': autoScrollSpeed,
+        'upscale_mode': upscaleMode.api,
+        'upscale_quality': upscaleQuality.api,
       };
 
   Map<String, dynamic> toJson() => {
@@ -220,6 +257,8 @@ class AppSettings {
       volumeKeysInverted: j['volume_keys_inverted'] as bool? ?? false,
       readerWarmth: (j['reader_warmth'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
       autoScrollSpeed: (j['auto_scroll_speed'] as num?)?.toDouble().clamp(30.0, 600.0) ?? 120,
+      upscaleMode: UpscaleMode.parse(j['upscale_mode'] as String?),
+      upscaleQuality: UpscaleQuality.parse(j['upscale_quality'] as String?),
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }

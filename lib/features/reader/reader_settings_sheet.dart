@@ -8,6 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/settings.dart';
 import 'reader_controller.dart';
+import 'upscale_settings.dart';
 
 Future<void> showReaderSettings(BuildContext context, ReaderController c) => showModalBottomSheet<void>(
       context: context,
@@ -46,6 +47,10 @@ class _ReaderSettings extends ConsumerWidget {
                   _ModeCard(mode: m, selected: c.mode == m, onTap: () => c.setMode(m)),
               ],
             ),
+          ),
+          _h(context, 'Улучшение качества (ИИ)'),
+          UpscaleSettingsPanel(
+            onEnhanceChapter: c.current == null ? null : () => c.upscaler?.enqueueAll(c.current!.pages),
           ),
           _h(context, 'Яркость'),
           Padding(

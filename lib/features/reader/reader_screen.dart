@@ -10,6 +10,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
 import '../../data/models/settings.dart';
+import '../../data/services/upscale_service.dart';
 import '../../data/services/volume_keys.dart';
 import '../../widgets/effects.dart';
 import '../../widgets/net_image.dart';
@@ -32,6 +33,8 @@ class ReaderScreen extends ConsumerStatefulWidget {
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   late final ReaderController c;
+  late final PageUpscaler _up = ref.read(pageUpscalerProvider);
+  (int, int, int)? _focused;
 
   @override
   void initState() {
@@ -50,6 +53,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     unawaited(c.init());
     if (ref.read(settingsProvider).keepScreenOn) unawaited(WakelockPlus.enable().catchError((Object _) {}));
     _applyVolumeKeys(ref.read(settingsProvider));
+    c.setUpscaler(_up.enabled ? _up : null);
+    ref.listenManual(settingsProvider.select((s) => (s.upscaleMode, s.upscaleQuality)), (_, __) {
+      // the provider applies the new settings first (it listens to the same provider)
+      scheduleMicrotask(() {
+        if (!mounted) return;
+        c.setUpscaler(_up.enabled ? _up : null);
+        _focused = null;
+        _focusUpscale();
+      });
+    });
     ref.listenManual(settingsProvider.select((s) => (s.volumeKeys, s.volumeKeysInverted)), (_, __) {
       _applyVolumeKeys(ref.read(settingsProvider));
     });
@@ -69,7 +82,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _lastUi = true;
   String? _endBuzzed;
 
+  /// Current page first, then the next ones (fewer for the slow "max" model).
+  void _focusUpscale() {
+    final u = c.upscaler;
+    final seg = c.current;
+    if (u == null || seg == null || seg.pages.isEmpty) return;
+    final key = (seg.index, c.page, seg.pages.length);
+    if (key == _focused) return;
+    _focused = key;
+    u.focus(seg.pages, c.page, ahead: u.quality == UpscaleQuality.max ? 2 : 4);
+  }
+
   void _onChange() {
+    _focusUpscale();
     final seg = c.current;
     if (seg != null && c.pageCount > 1 && c.page >= c.pageCount - 1 && _endBuzzed != seg.chapter.id) {
       _endBuzzed = seg.chapter.id;
@@ -84,6 +109,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void dispose() {
     c.removeListener(_onChange);
+    unawaited(_up.stop());
     unawaited(VolumeKeys.disable());
     unawaited(c.close().whenComplete(c.dispose));
     unawaited(WakelockPlus.disable().catchError((Object _) {}));
@@ -100,6 +126,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(settingsProvider);
+    _up.targetWidth = (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context)).round();
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(

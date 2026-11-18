@@ -20,6 +20,7 @@ import '../../widgets/states.dart';
 import '../discover/filters_sheet.dart' show commonGenres;
 import '../downloads_support.dart';
 import '../library/library_actions.dart' show promptText;
+import '../reader/upscale_settings.dart';
 import '../update_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -79,6 +80,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
           ]),
         ),
+        const _Header('Улучшение качества страниц (ИИ)'),
+        const UpscaleSettingsPanel(showCache: true),
         const _Header('Читалка'),
         ListTile(
           leading: const Icon(Icons.chrome_reader_mode_outlined),

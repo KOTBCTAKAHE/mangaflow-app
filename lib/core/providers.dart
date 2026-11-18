@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/local/daos.dart';
@@ -19,6 +20,7 @@ import '../data/services/backup_service.dart';
 import '../data/services/download_manager.dart';
 import '../data/services/notifications.dart';
 import '../data/services/sync_engine.dart';
+import '../data/services/upscale_service.dart';
 import 'network/api_client.dart';
 import 'storage/database.dart';
 import 'storage/secure_store.dart';
@@ -61,6 +63,25 @@ final kvDaoProvider = Provider((ref) => KvDao(ref.watch(_db)));
 
 /// Bumped on every local data change; list providers watch it to refresh.
 final dataVersionProvider = StateProvider<int>((_) => 0);
+
+/// On-device AI page upscaling (queue + disk cache), configured from settings.
+final pageUpscalerProvider = Provider<PageUpscaler>((ref) {
+  final u = PageUpscaler(backend: ChannelUpscaleBackend(), cacheDir: getTemporaryDirectory);
+  void apply(AppSettings s) {
+    u.mode = s.upscaleMode;
+    u.quality = s.upscaleQuality;
+  }
+
+  apply(ref.read(settingsProvider));
+  ref.listen<AppSettings>(settingsProvider, (prev, s) {
+    final wasOn = u.enabled;
+    final qualityChanged = prev?.upscaleQuality != s.upscaleQuality;
+    apply(s);
+    if ((wasOn && !u.enabled) || qualityChanged) unawaited(u.stop());
+  });
+  ref.onDispose(u.dispose);
+  return u;
+});
 
 void _bump(Ref ref) {
   final n = ref.read(dataVersionProvider.notifier);
