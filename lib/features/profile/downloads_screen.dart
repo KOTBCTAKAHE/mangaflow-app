@@ -10,6 +10,7 @@ import '../../core/utils/format.dart';
 import '../../data/services/download_manager.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
+import '../../data/services/background_guide.dart';
 import '../downloads_support.dart';
 
 final _downloadsProvider = FutureProvider.autoDispose<(List<DownloadTask>, int, DownloadsState, bool)>((ref) async {
@@ -17,6 +18,8 @@ final _downloadsProvider = FutureProvider.autoDispose<(List<DownloadTask>, int, 
   final m = ref.watch(downloadManagerProvider);
   return (await m.all(), await m.totalBytes(), await m.state(), await isBatteryUnrestricted());
 });
+
+final _vendorGuideProvider = FutureProvider.autoDispose<VendorGuide?>((_) => VendorGuide.forThisDevice());
 
 String _hhmm(DateTime d) {
   final l = d.toLocal();
@@ -89,6 +92,12 @@ class DownloadsScreen extends ConsumerWidget {
                   },
                   child: const Text('Разрешить'),
                 ),
+              ),
+            if (ref.watch(_vendorGuideProvider).valueOrNull case final guide?)
+              _Banner(
+                icon: Icons.phone_android_rounded,
+                text: '${guide.vendor}: разрешите фоновую работу, иначе загрузка встанет при выключенном экране.',
+                action: TextButton(onPressed: () => showVendorGuide(context, guide), child: const Text('Как')),
               ),
             if (failed > 0)
               _Banner(

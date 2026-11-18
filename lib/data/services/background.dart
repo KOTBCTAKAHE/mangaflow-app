@@ -49,6 +49,12 @@ Future<void> _resumeDownloads() async {
         0;
     if (pending == 0) return;
     if (await DownloadService.isRunning()) return;
+    // Battery-exempt apps may start a foreground service from the background:
+    // prefer that (long-running, wake/Wi-Fi locks) over an 8-minute window here.
+    try {
+      DownloadService.initOptions();
+      if (await DownloadService.ensureStarted()) return;
+    } catch (_) {}
     final settings = PrefsSettings(await SharedPreferences.getInstance());
     try {
       final engine = buildEngine(db: db.db, owner: 'workmanager', settings: () => settings.value);

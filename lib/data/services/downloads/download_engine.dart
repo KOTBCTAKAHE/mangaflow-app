@@ -28,8 +28,11 @@ enum RunResult { idle, budgetExhausted, stopped, leaseBusy }
 
 /// Error classification drives the retry policy.
 class _Transient implements Exception {
-  _Transient(this.message);
+  _Transient(this.message, {this.connection = false});
   final String message;
+
+  /// The failure looked like a network problem (not an HTTP answer).
+  final bool connection;
   @override
   String toString() => message;
 }
@@ -66,6 +69,7 @@ class DownloadEngine {
     required this.net,
     required this.owner,
     this.onProgress,
+    this.reachable,
     DateTime Function()? now,
     Future<void> Function(Duration)? sleep,
   })  : _now = now ?? DateTime.now,
@@ -84,6 +88,12 @@ class DownloadEngine {
 
   /// Called after every observable change (status, page done, waiting for network).
   final void Function(EngineEvent event)? onProgress;
+
+  /// Cheap "can I really reach the backend?" probe. Doze / vendor battery savers
+  /// often keep the connection *reported* as up while blocking traffic with the
+  /// screen off; then we must wait instead of burning retry attempts.
+  final Future<bool> Function()? reachable;
+  bool _suspectNetwork = false;
   final DateTime Function() _now;
   final Future<void> Function(Duration) _sleep;
 
@@ -161,6 +171,15 @@ class DownloadEngine {
           continue;
         }
 
+        if (_suspectNetwork) {
+          if (!await _isReachable()) {
+            await _setState('waiting_network');
+            await _sleep(const Duration(seconds: 20));
+            continue;
+          }
+          _suspectNetwork = false;
+        }
+
         final due = await db.query('downloads',
             where: "status IN ('queued','retrying') AND next_attempt_at <= ?",
             whereArgs: [_nowMs],
@@ -185,6 +204,29 @@ class DownloadEngine {
     } finally {
       await _releaseLease();
     }
+  }
+
+  Future<bool> _isReachable() async {
+    final probe = reachable;
+    if (probe == null) return true;
+    try {
+      return await probe();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static bool _isConnectionError(Object e) {
+    if (e is TimeoutException || e is SocketException) return true;
+    if (e is DioException) {
+      return e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          (e.type == DioExceptionType.unknown && e.error is SocketException);
+    }
+    if (e is _Transient) return e.connection;
+    return false;
   }
 
   Future<int> _pendingCount() async =>
@@ -254,12 +296,23 @@ class DownloadEngine {
       });
       _emit(row, null);
     } on _Transient catch (e) {
-      await _scheduleRetry(sourceId, chapterId, attempts, e.message);
+      if (e.connection && !await _isReachable()) {
+        _suspectNetwork = true;
+        await _requeueWithoutPenalty(sourceId, chapterId, e.message);
+      } else {
+        await _scheduleRetry(sourceId, chapterId, attempts, e.message);
+      }
       _emit(row, null);
     } catch (e) {
       await _scheduleRetry(sourceId, chapterId, attempts, e.toString());
       _emit(row, null);
     }
+  }
+
+  /// Network was down (not the chapter's fault): back to the queue, attempts unchanged.
+  Future<void> _requeueWithoutPenalty(String sourceId, String chapterId, String message) async {
+    if (await _status(sourceId, chapterId) != 'downloading') return;
+    await _update(sourceId, chapterId, {'status': 'queued', 'next_attempt_at': 0, 'error': 'Ожидание сети: $message'});
   }
 
   Future<void> _scheduleRetry(String sourceId, String chapterId, int attempts, String message) async {
@@ -293,7 +346,8 @@ class DownloadEngine {
   }
 
   static Exception _classify(ApiException e) {
-    const transient = {'offline', 'timeout', 'source_unavailable', 'source_rate_limited', 'rate_limited', 'cancelled'};
+    if (e.isOffline) return _Transient(e.userMessage, connection: true);
+    const transient = {'source_unavailable', 'source_rate_limited', 'rate_limited', 'cancelled'};
     if (transient.contains(e.code) || (e.status ?? 0) >= 500 || e.status == 429) return _Transient(e.userMessage);
     return _Permanent(e.userMessage);
   }
@@ -373,8 +427,28 @@ class DownloadEngine {
           await _setState('running');
           continue;
         }
+        if (_isConnectionError(e) && !await _isReachable()) {
+          // screen-off network blackout (Doze / vendor saver): wait, don't count
+          await _setState('waiting_network');
+          var waited = Duration.zero;
+          while (!await _isReachable()) {
+            if (_stop) throw _Aborted();
+            await _renewLease();
+            await _sleep(const Duration(seconds: 20));
+            waited += const Duration(seconds: 20);
+            if (waited > const Duration(minutes: 10)) {
+              // give the chapter back to the queue; the loop keeps waiting for the network
+              _suspectNetwork = true;
+              throw _Transient('нет связи с сервером', connection: true);
+            }
+          }
+          await _setState('running');
+          continue;
+        }
         attempt++;
-        if (attempt >= pageAttempts) throw _Transient('Страница ${page.index + 1}: ${_describe(e)}');
+        if (attempt >= pageAttempts) {
+          throw _Transient('Страница ${page.index + 1}: ${_describe(e)}', connection: _isConnectionError(e));
+        }
         await _sleep(_pageBackoff(attempt));
       }
     }

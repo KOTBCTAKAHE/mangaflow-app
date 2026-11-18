@@ -50,6 +50,22 @@ def patch_manifest() -> None:
             '        </service>\n'
         )
         text = text.replace("    </application>", service + "    </application>", 1)
+    if "com.vivo.permissionmanager" not in text:
+        vendors = [
+            "com.vivo.permissionmanager", "com.iqoo.secure", "com.vivo.abe",
+            "com.miui.securitycenter", "com.miui.powerkeeper",
+            "com.huawei.systemmanager", "com.hihonor.systemmanager",
+            "com.coloros.safecenter", "com.oppo.safe", "com.oneplus.security",
+            "com.samsung.android.lool", "com.samsung.android.sm",
+        ]
+        entries = "        <!-- vendor background-settings screens (package visibility, Android 11+) -->\n"
+        entries += "".join(f'        <package android:name="{v}"/>\n' for v in vendors)
+        entries += ('        <intent>\n            <action android:name="android.intent.action.VIEW"/>\n'
+                    '            <data android:scheme="https"/>\n        </intent>\n')
+        if "</queries>" in text:
+            text = text.replace("    </queries>", entries + "    </queries>", 1)
+        else:
+            text = text.replace("</manifest>", "    <queries>\n" + entries + "    </queries>\n</manifest>", 1)
     if "usesCleartextTraffic" not in text:
         text = text.replace("<application", '<application\n        android:usesCleartextTraffic="true"', 1)
     MANIFEST.write_text(text)

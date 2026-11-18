@@ -4,13 +4,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
+import '../update_dialog.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.shell});
   final StatefulNavigationShell shell;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  StatefulNavigationShell get shell => widget.shell;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        if (mounted) autoCheckForUpdates(context, ref);
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final unseen = ref.watch(unseenUpdatesProvider).valueOrNull ?? 0;
     return Scaffold(
       body: shell,

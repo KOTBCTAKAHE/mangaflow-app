@@ -65,7 +65,17 @@ DownloadEngine buildEngine({
 }) {
   final client = ApiClient(baseUrl: settings().apiBaseUrl);
   final api = CatalogApi(client);
+  final ping = Dio(BaseOptions(connectTimeout: const Duration(seconds: 8), receiveTimeout: const Duration(seconds: 8)));
   return DownloadEngine(
+    reachable: () async {
+      final base = settings().apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+      try {
+        final r = await ping.get<dynamic>('$base/health/live', options: Options(validateStatus: (_) => true));
+        return (r.statusCode ?? 0) > 0 && (r.statusCode ?? 0) < 500;
+      } catch (_) {
+        return false;
+      }
+    },
     db: db,
     owner: owner,
     http: pageHttpClient(),
@@ -93,6 +103,12 @@ abstract final class DownloadService {
   static void init() {
     if (!supported) return;
     FlutterForegroundTask.initCommunicationPort();
+    initOptions();
+  }
+
+  /// Service options only (usable from background isolates, e.g. WorkManager).
+  static void initOptions() {
+    if (!supported) return;
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'chapter_downloads',

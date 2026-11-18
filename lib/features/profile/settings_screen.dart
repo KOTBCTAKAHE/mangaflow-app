@@ -18,7 +18,9 @@ import '../../data/services/background.dart';
 import '../../data/services/notifications.dart';
 import '../../widgets/states.dart';
 import '../discover/filters_sheet.dart' show commonGenres;
+import '../downloads_support.dart';
 import '../library/library_actions.dart' show promptText;
+import '../update_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -155,6 +157,22 @@ class SettingsScreen extends ConsumerWidget {
           title: const Text('Загружать только по Wi-Fi'),
           value: s.downloadWifiOnly,
           onChanged: (v) => ctrl.update((x) => x.copyWith(downloadWifiOnly: v)),
+        ),
+        ListTile(
+          leading: const Icon(Icons.battery_charging_full_rounded),
+          title: const Text('Фоновая загрузка'),
+          subtitle: const Text('Батарея, автозапуск и настройки прошивки (Vivo, Xiaomi, Samsung…)'),
+          onTap: () => ensureBackgroundAllowed(context, ref, force: true),
+        ),
+        const _Header('Приложение'),
+        ListTile(
+          leading: const Icon(Icons.system_update_rounded),
+          title: const Text('Проверить обновления'),
+          subtitle: FutureBuilder<String>(
+            future: ref.read(appUpdaterProvider).currentVersion(),
+            builder: (_, v) => Text('Версия ${v.data ?? '…'} · GitHub Releases'),
+          ),
+          onTap: () => manualCheckForUpdates(context, ref),
         ),
         const _Header('Данные'),
         ListTile(

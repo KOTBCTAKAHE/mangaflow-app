@@ -94,7 +94,10 @@ void main() {
     await tmp.delete(recursive: true);
   });
 
+  Future<bool> Function()? reachable;
+
   DownloadEngine engine({String owner = 'test'}) => DownloadEngine(
+        reachable: reachable,
         db: db.db,
         owner: owner,
         http: Dio()..httpClientAdapter = http,
@@ -247,6 +250,35 @@ void main() {
     }
     await engine().run();
     expect((await row())['status'], 'completed');
+  });
+
+  test('screen-off blackout: "connected" but server unreachable → waits without burning attempts', () async {
+    var blackout = 5; // probe fails 5 times (~100 s of fake time), then the network is back
+    reachable = () async => blackout-- <= 0;
+    http.on('http://img/c1/0', [networkDown, networkDown, (_) => ok(png(200))]);
+    http.on('http://img/c1/1', [(_) => ok(png(200, seed: 1))]);
+    http.on('http://img/c1/2', [(_) => ok(png(200, seed: 2))]);
+    await engine().run();
+    final r = await row();
+    expect(r['status'], 'completed');
+    expect(r['attempts'], 0);
+    expect(sleeps.where((d) => d == const Duration(seconds: 20)), isNotEmpty);
+    reachable = null;
+  });
+
+  test('page list fails while server unreachable → requeued without penalty', () async {
+    var down = 3;
+    reachable = () async => down <= 0;
+    pagesImpl = (s, c, w) async {
+      if (down-- > 0) throw const ApiException('offline', 'offline');
+      return [PageRef(index: 0, url: 'http://img/$c/0')];
+    };
+    http.on('http://img/c1/0', [(_) => ok(png(200))]);
+    await engine().run();
+    final r = await row();
+    expect(r['status'], 'completed');
+    expect(r['attempts'], 0);
+    reachable = null;
   });
 
   test('chapter backoff schedule', () {

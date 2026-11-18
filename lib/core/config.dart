@@ -10,6 +10,7 @@ abstract final class AppConfig {
   );
 
   static const appName = 'MangaFlow';
+  static const githubRepo = 'KOTBCTAKAHE/mangaflow-app';
   static const backupFormat = 'mangaflow-backup';
   static const backupVersion = 1;
 
