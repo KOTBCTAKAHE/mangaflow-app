@@ -149,6 +149,7 @@ class PageUpscaler {
   bool _pumping = false;
   bool _disposed = false;
   int _sinceprune = 0;
+  String? _preempted;
   Directory? _dir;
 
   /// Stats for the settings screen.
@@ -240,13 +241,23 @@ class PageUpscaler {
   void _replaceQueue(List<PageRef> order) {
     final wanted = <String>{};
     final jobs = <_Job>[];
+    final running = _running;
+    // The reader moved on: a page still being processed that is no longer the
+    // current one is cancelled right away (it goes back into the queue if it's still
+    // near), so the page on screen starts immediately.
+    if (running != null && order.isNotEmpty && keyFor(order.first) != running.key) {
+      _preempted = running.key;
+      unawaited(backend.cancel(running.key));
+    }
     for (final p in order) {
       final k = keyFor(p);
-      if (!wanted.add(k) || k == _running?.key) continue;
+      if (!wanted.add(k)) continue;
+      if (k == running?.key && k != _preempted) continue;
       final st = _notifier(k).value.status;
       if (st == UpscaleStatus.done || st == UpscaleStatus.skipped || st == UpscaleStatus.failed) continue;
       jobs.add(_Job(p, k));
     }
+    _preempted = null;
     for (final j in _queue) {
       if (!wanted.contains(j.key)) _set(j.key, UpscaleState.idle);
     }
@@ -304,7 +315,8 @@ class PageUpscaler {
         case 'skipped':
           _set(job.key, UpscaleState(UpscaleStatus.skipped, message: r.message));
         case 'cancelled':
-          _set(job.key, UpscaleState.idle);
+          // if it was re-queued after preemption, keep its "queued" state
+          if (!_queue.any((j) => j.key == job.key)) _set(job.key, UpscaleState.idle);
         default:
           _set(job.key, UpscaleState(UpscaleStatus.failed, message: r.message));
       }

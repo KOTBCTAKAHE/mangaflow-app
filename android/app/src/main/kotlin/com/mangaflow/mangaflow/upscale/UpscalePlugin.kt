@@ -40,6 +40,7 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
         }, "mf-upscale")
     }
     private val cancelled = Collections.synchronizedSet(HashSet<String>())
+    @Volatile private var runningId: String? = null
     private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
     private var sessionModel: String? = null
@@ -47,8 +48,8 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
     private class Model(val asset: String, val spec: ModelSpec)
 
     private val models = mapOf(
-        "fast" to Model("assets/models/waifu2x_upconv7_art_noise1_scale2x.onnx", ModelSpec(scale = 2, offset = 14, tile = 256)),
-        "balanced" to Model("assets/models/waifu2x_cunet_art_noise1_scale2x.onnx", ModelSpec(scale = 2, offset = 36, tile = 196)),
+        "fast" to Model("assets/models/waifu2x_upconv7_art_noise1_scale2x_int8.onnx", ModelSpec(scale = 2, offset = 14, tile = 256, colorFix = true)),
+        "balanced" to Model("assets/models/waifu2x_cunet_art_noise1_scale2x_int8.onnx", ModelSpec(scale = 2, offset = 36, tile = 196, colorFix = true)),
         "max" to Model("assets/models/waifu2x_swin_art_scan_noise1_scale2x.onnx", ModelSpec(scale = 2, offset = 16, tile = 160)),
     )
 
@@ -66,6 +67,7 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
                     return
                 }
                 executor.execute {
+                    runningId = id
                     val reply = try {
                         if (cancelled.remove(id)) mapOf("status" to "cancelled")
                         else upscale(id, input, output, call.argument<String>("model") ?: "fast", model, maxSourceWidth, maxOutPixels)
@@ -78,13 +80,16 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
                         Log.w(TAG, "upscale failed", e)
                         mapOf("status" to "error", "message" to (e.message ?: e.javaClass.simpleName))
                     } finally {
+                        runningId = null
                         cancelled.remove(id)
                     }
                     main.post { result.success(reply) }
                 }
             }
             "cancel" -> {
-                call.argument<String>("id")?.let { cancelled.add(it) }
+                // Only the job that is running (or about to run) can be cancelled; a late
+                // cancel for a finished job must not poison the next run of that page.
+                call.argument<String>("id")?.let { if (it == runningId || runningId == null) cancelled.add(it) }
                 result.success(null)
             }
             "release" -> {
@@ -199,7 +204,7 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
         val loader = FlutterInjector.instance().flutterLoader()
         val bytes = context.assets.open(loader.getLookupKeyForAsset(model.asset)).use { it.readBytes() }
         val prefs = context.getSharedPreferences("mf_upscale", Context.MODE_PRIVATE)
-        val prefKey = "backend_${key}_v1"
+        val prefKey = "backend_${key}_v2"
         val chosen = prefs.getString(prefKey, null)
         val ses = when (chosen) {
             "xnnpack" -> runCatching { e.createSession(bytes, options(model, true)) }.getOrNull()

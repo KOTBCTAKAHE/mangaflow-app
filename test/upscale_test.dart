@@ -12,6 +12,7 @@ class FakeBackend implements UpscaleBackend {
   int released = 0;
   String status = 'ok';
   Completer<void>? gate;
+  bool cancelHonoured = false;
 
   @override
   Future<UpscaleOutcome> run({
@@ -24,6 +25,7 @@ class FakeBackend implements UpscaleBackend {
   }) async {
     calls.add(input.split('/').last);
     if (gate != null) await gate!.future;
+    if (cancelled.remove(id) && cancelHonoured) return const UpscaleOutcome('cancelled');
     if (status == 'ok') await File(output).writeAsBytes([1, 2, 3]);
     return UpscaleOutcome(status, ms: 1000);
   }
@@ -184,5 +186,32 @@ void main() {
         AppSettings(apiBaseUrl: 'x', updatedAt: DateTime.utc(2026), upscaleMode: UpscaleMode.off).toJson(),
         fallbackUrl: 'x');
     expect(chosen.upscaleMode, UpscaleMode.off);
+  });
+
+  test('turning the page cancels the page being processed and starts the new current one', () async {
+    backend
+      ..gate = Completer()
+      ..cancelHonoured = true;
+    final p = pages(10);
+    up.focus(p, 4, ahead: 1); // 4 running, 5 queued
+    await idle(max: const Duration(milliseconds: 50));
+    up.focus(p, 5, ahead: 1); // user flipped: 5 first, then 6, then 4 (previous)
+    expect(backend.cancelled, [up.keyFor(p[4])]);
+    expect(up.watch(p[4]).value.status, UpscaleStatus.queued);
+    backend.gate!.complete();
+    await idle();
+    expect(backend.calls, ['src_4', 'src_5', 'src_6', 'src_4']);
+    expect(up.watch(p[4]).value.isDone, isTrue);
+    expect(up.watch(p[5]).value.isDone, isTrue);
+  });
+
+  test('refocusing on the page being processed does not cancel it', () async {
+    backend.gate = Completer();
+    final p = pages(10);
+    up.focus(p, 4, ahead: 1);
+    await idle(max: const Duration(milliseconds: 50));
+    up.focus(p, 4, ahead: 2);
+    expect(backend.cancelled, isEmpty);
+    backend.gate!.complete();
   });
 }

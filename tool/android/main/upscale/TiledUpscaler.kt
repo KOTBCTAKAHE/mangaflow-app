@@ -14,7 +14,14 @@ fun interface TileModel {
  * pixels (output space) on each side; [tile] is the input tile edge, [blend] the
  * seam-blending width in output pixels.
  */
-data class ModelSpec(val scale: Int, val offset: Int, val tile: Int, val blend: Int = 16)
+data class ModelSpec(
+    val scale: Int,
+    val offset: Int,
+    val tile: Int,
+    val blend: Int = 16,
+    /** INT8 models: re-centre each tile's channel means on the input's (removes slight tints). */
+    val colorFix: Boolean = false,
+)
 
 class CancelledException : RuntimeException("cancelled")
 
@@ -94,16 +101,14 @@ class TiledUpscaler(private val spec: ModelSpec, private val model: TileModel) {
                 }
                 val y: FloatArray
                 if (maxR - minR <= FLAT && maxG - minG <= FLAT && maxB - minB <= FLAT) {
-                    // Flat tile (page margins, gutters, solid fills): no inference needed.
+                    // (Near-)flat tile — page margins, gutters, solid fills, JPEG-noisy white:
+                    // a smooth bilinear upscale is indistinguishable and ~free.
                     tilesSkipped++
-                    val n = tilePlane.toFloat() * 255f
-                    y = FloatArray(3 * outPlane)
-                    y.fill(sumR / n, 0, outPlane)
-                    y.fill(sumG / n, outPlane, 2 * outPlane)
-                    y.fill(sumB / n, 2 * outPlane, 3 * outPlane)
+                    y = bilinear(input, tile, tout)
                 } else {
                     y = model.run(input, tile)
                     require(y.size == 3 * outPlane) { "model output ${y.size} != ${3 * outPlane}" }
+                    if (spec.colorFix) recentre(input, tile, inOff, y, tout)
                 }
                 // Accumulate with seam-blending weights.
                 val x0 = j * sout
@@ -159,9 +164,49 @@ class TiledUpscaler(private val spec: ModelSpec, private val model: TileModel) {
         }
     }
 
+    /** Output-space bilinear upscale of the (padded) input tile, cropped like the model. */
+    private fun bilinear(input: FloatArray, tile: Int, tout: Int): FloatArray {
+        val s = spec.scale.toFloat()
+        val plane = tile * tile
+        val o = FloatArray(3 * tout * tout)
+        for (yy in 0 until tout) {
+            val fy = ((yy + spec.offset + 0.5f) / s - 0.5f).coerceIn(0f, tile - 1f)
+            val y0 = fy.toInt(); val y1 = min(y0 + 1, tile - 1); val wy = fy - y0
+            for (xx in 0 until tout) {
+                val fx = ((xx + spec.offset + 0.5f) / s - 0.5f).coerceIn(0f, tile - 1f)
+                val x0 = fx.toInt(); val x1 = min(x0 + 1, tile - 1); val wx = fx - x0
+                for (c in 0 until 3) {
+                    val b = c * plane
+                    val top = input[b + y0 * tile + x0] * (1 - wx) + input[b + y0 * tile + x1] * wx
+                    val bot = input[b + y1 * tile + x0] * (1 - wx) + input[b + y1 * tile + x1] * wx
+                    o[c * tout * tout + yy * tout + xx] = top * (1 - wy) + bot * wy
+                }
+            }
+        }
+        return o
+    }
+
+    private fun recentre(input: FloatArray, tile: Int, inOff: Int, y: FloatArray, tout: Int) {
+        val plane = tile * tile
+        val outPlane = tout * tout
+        val n = ((tile - 2 * inOff) * (tile - 2 * inOff)).toFloat()
+        for (c in 0 until 3) {
+            var si = 0.0
+            for (yy in inOff until tile - inOff) {
+                val row = c * plane + yy * tile
+                for (xx in inOff until tile - inOff) si += input[row + xx]
+            }
+            var so = 0.0
+            for (k in c * outPlane until (c + 1) * outPlane) so += y[k]
+            val d = (si / n - so / outPlane).toFloat()
+            if (kotlin.math.abs(d) < 1e-4f) continue
+            for (k in c * outPlane until (c + 1) * outPlane) y[k] += d
+        }
+    }
+
     companion object {
-        /** Max channel spread (0..255) for a tile to count as flat. */
-        const val FLAT = 2
+        /** Max channel spread (0..255) for a tile to count as (near-)flat. */
+        const val FLAT = 6
 
         fun ceilDiv(a: Int, b: Int) = (a + b - 1) / b
 

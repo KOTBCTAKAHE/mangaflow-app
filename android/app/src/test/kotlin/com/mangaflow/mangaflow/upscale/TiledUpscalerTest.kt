@@ -58,6 +58,28 @@ class TiledUpscalerTest {
         }
     }
 
+    @Test fun colorFixKeepsExactOutputForUnbiasedModel() {
+        val spec = ModelSpec(scale = 2, offset = 14, tile = 256, colorFix = true)
+        val (w, h) = 300 to 420
+        val px = noise(w, h, 11)
+        assertArrayEquals(nearest2x(px, w, h, 2), run(spec, px, w, h))
+    }
+
+    @Test fun colorFixRemovesTint() {
+        val spec = ModelSpec(scale = 2, offset = 14, tile = 256, colorFix = true)
+        val tinted = TileModel { input, size ->
+            val o = nearestModel(spec).run(input, size)
+            val plane = o.size / 3
+            for (k in 2 * plane until 3 * plane) o[k] -= 0.02f // blue drop = yellowish tint
+            o
+        }
+        val (w, h) = 200 to 200
+        val px = noise(w, h, 5)
+        val out = IntArray(w * 2 * h * 2)
+        TiledUpscaler(spec, tinted).process(px, w, h, false) { r0, rows, data -> System.arraycopy(data, 0, out, r0 * w * 2, rows * w * 2) }
+        assertArrayEquals(nearest2x(px, w, h, 2).map { it and 0xFF }.toIntArray(), out.map { it and 0xFF }.toIntArray())
+    }
+
     @Test fun swinGeometry_exact() {
         val spec = ModelSpec(scale = 2, offset = 16, tile = 160)
         val (w, h) = 333 to 777
