@@ -34,28 +34,43 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       body: shell,
       extendBody: true, // content scrolls under the frosted bar
-      bottomNavigationBar: Glass(
-        child: NavigationBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+      bottomNavigationBar: MfNavBar(
         selectedIndex: shell.currentIndex,
-        onDestinationSelected: (i) {
-          HapticFeedback.selectionClick();
-          shell.goBranch(i, initialLocation: i == shell.currentIndex);
-        },
-        destinations: [
-          const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Главная'),
-          const NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore_rounded), label: 'Поиск'),
-          NavigationDestination(
-            icon: Badge(isLabelVisible: unseen > 0, label: Text('$unseen'), child: const Icon(Icons.collections_bookmark_outlined)),
-            selectedIcon: Badge(isLabelVisible: unseen > 0, label: Text('$unseen'), child: const Icon(Icons.collections_bookmark_rounded)),
-            label: 'Библиотека',
-          ),
-          const NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Профиль'),
-        ],
-      ),
+        unseen: unseen,
+        onSelect: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
       ),
     );
   }
+}
+
+/// Frosted bottom navigation shared by the shell (and screenshot tests).
+class MfNavBar extends StatelessWidget {
+  const MfNavBar({super.key, required this.selectedIndex, required this.onSelect, this.unseen = 0});
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+  final int unseen;
+
+  @override
+  Widget build(BuildContext context) => Glass(
+        child: NavigationBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (i) {
+            HapticFeedback.selectionClick();
+            onSelect(i);
+          },
+          destinations: [
+            const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Главная'),
+            const NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore_rounded), label: 'Поиск'),
+            NavigationDestination(
+              icon: Badge(isLabelVisible: unseen > 0, label: Text('$unseen'), child: const Icon(Icons.collections_bookmark_outlined)),
+              selectedIcon: Badge(isLabelVisible: unseen > 0, label: Text('$unseen'), child: const Icon(Icons.collections_bookmark_rounded)),
+              label: 'Библиотека',
+            ),
+            const NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Профиль'),
+          ],
+        ),
+      );
 }

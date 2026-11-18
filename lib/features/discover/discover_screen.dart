@@ -165,19 +165,30 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         ),
       ],
       const SliverToBoxAdapter(child: SectionHeader(title: 'Жанры', subtitle: 'Поиск по всем источникам')),
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
-          child: Wrap(spacing: MfSpace.sm, runSpacing: MfSpace.sm, children: [
-            for (final g in commonGenres.take(14))
-              ActionChip(
-                label: Text(g),
-                onPressed: () {
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
+        sliver: SliverGrid.builder(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 220,
+            mainAxisExtent: 64,
+            mainAxisSpacing: MfSpace.sm,
+            crossAxisSpacing: MfSpace.sm,
+          ),
+          itemCount: commonGenres.take(12).length,
+          itemBuilder: (context, i) {
+            final g = commonGenres[i];
+            return Appear(
+              index: i,
+              child: GenreTile(
+                label: g,
+                index: i,
+                onTap: () {
                   final ctrl = ref.read(searchControllerProvider.notifier);
                   ctrl.setFilters(ref.read(searchControllerProvider).filters.copyWith(genres: [g]));
                 },
               ),
-          ]),
+            );
+          },
         ),
       ),
       const SliverToBoxAdapter(child: SectionHeader(title: 'Каталоги источников')),
@@ -266,7 +277,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           ),
           for (final o in options)
             ListTile(
-              leading: MangaCover(url: o.coverUrl, width: 40, radius: MfRadius.xs, thumbWidth: 160),
+              leading: MangaCover(url: o.coverUrl, width: 40, radius: MfRadius.xs),
               title: Text(o.title, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(o.sourceName ?? o.sourceId),
               onTap: () => Navigator.pop(context, o),
@@ -312,6 +323,67 @@ class _SourceFilter extends ConsumerWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Gradient genre card: hue cycles by index, big faint glyph for texture.
+class GenreTile extends StatelessWidget {
+  const GenreTile({super.key, required this.label, required this.index, required this.onTap});
+  final String label;
+  final int index;
+  final VoidCallback onTap;
+
+  static const _hues = [12.0, 330.0, 265.0, 205.0, 160.0, 40.0, 290.0, 185.0, 350.0, 230.0, 100.0, 20.0];
+  static const _glyphs = [
+    Icons.local_fire_department_rounded,
+    Icons.favorite_rounded,
+    Icons.auto_awesome_rounded,
+    Icons.rocket_launch_rounded,
+    Icons.forest_rounded,
+    Icons.sports_martial_arts_rounded,
+    Icons.theater_comedy_rounded,
+    Icons.psychology_rounded,
+    Icons.bolt_rounded,
+    Icons.castle_rounded,
+    Icons.school_rounded,
+    Icons.whatshot_rounded,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final hue = _hues[index % _hues.length];
+    final a = HSLColor.fromAHSL(1, hue, 0.55, 0.42).toColor();
+    final b = HSLColor.fromAHSL(1, (hue + 35) % 360, 0.60, 0.26).toColor();
+    return PressableScale(
+      child: Material(
+        borderRadius: BorderRadius.circular(MfRadius.md),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(gradient: LinearGradient(colors: [a, b], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(children: [
+              Positioned(
+                right: -8,
+                bottom: -12,
+                child: Transform.rotate(
+                  angle: 0.25,
+                  child: Icon(_glyphs[index % _glyphs.length], size: 58, color: Colors.white.withValues(alpha: 0.16)),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: MfSpace.md),
+                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: MfType.titleSmall.copyWith(color: Colors.white)),
+                ),
+              ),
+            ]),
+          ),
+        ),
       ),
     );
   }

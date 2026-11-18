@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/config.dart';
@@ -12,6 +11,7 @@ import '../../data/models/settings.dart';
 import '../../data/repositories/catalog_repository.dart';
 import '../../data/repositories/library_repository.dart';
 import '../../data/repositories/reading_repository.dart';
+import '../../widgets/net_image.dart';
 
 /// A chapter with its resolved pages (network URLs or local files).
 class LoadedChapter {
@@ -29,8 +29,7 @@ ImageProvider pageImageProvider(PageRef p, {int? cacheWidth}) {
     final file = FileImage(File(p.localPath!));
     return cacheWidth == null ? file : ResizeImage(file, width: cacheWidth);
   }
-  final net = CachedNetworkImageProvider(p.url);
-  return cacheWidth == null ? net : ResizeImage(net, width: cacheWidth);
+  return netImage(p.url, decodeWidth: cacheWidth);
 }
 
 /// Reader state & business logic, independent of the widgets that render it.
@@ -251,6 +250,7 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> setMode(ReadingMode m) async {
     if (m == mode) return;
     mode = m;
+    if (m.isPaged) autoScrolling = false;
     // paged modes show a single chapter
     if (m.isPaged && segments.length > 1) {
       segments.removeWhere((s) => s.index != chapterIdx);
@@ -260,6 +260,15 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
     _notify();
     await prefs.setReadingMode(sourceId, mangaId, m);
     await library.setReaderSettings(sourceId, mangaId, {'reading_mode': m.api});
+  }
+
+  /// Webtoon auto-scroll: runs while the overlay is hidden.
+  bool autoScrolling = false;
+
+  void setAutoScroll(bool on) {
+    autoScrolling = on;
+    if (on) uiVisible = false;
+    _notify();
   }
 
   final _steps = StreamController<int>.broadcast();

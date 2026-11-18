@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
+import '../../data/models/manga.dart';
 import 'reader_controller.dart';
 import 'reader_page_image.dart';
 
@@ -36,7 +38,7 @@ class VerticalReader extends StatefulWidget {
 
 typedef _Item = ({int seg, int page}); // page == -1 → end-of-chapter card
 
-class _VerticalReaderState extends State<VerticalReader> {
+class _VerticalReaderState extends State<VerticalReader> with SingleTickerProviderStateMixin {
   ScrollController _scroll = ScrollController();
   final _centerKey = UniqueKey();
   final _transform = TransformationController();
@@ -48,8 +50,37 @@ class _VerticalReaderState extends State<VerticalReader> {
   Timer? _throttle;
   TapDownDetails? _doubleTap;
   StreamSubscription<int>? _steps;
+  late final Ticker _ticker = createTicker(_tick);
+  Duration _lastTick = Duration.zero;
+  bool _finger = false;
 
   ReaderController get c => widget.c;
+
+  /// Auto-scroll: advances by speed × dt; pauses under a finger or while the menu is open.
+  void _tick(Duration elapsed) {
+    final dt = (elapsed - _lastTick).inMicroseconds / 1e6;
+    _lastTick = elapsed;
+    if (_finger || _zoomed || !_scroll.hasClients || dt <= 0 || dt > 0.25) return;
+    final pos = _scroll.position;
+    final next = pos.pixels + c.settings().autoScrollSpeed * dt;
+    if (next >= pos.maxScrollExtent) {
+      _scroll.jumpTo(pos.maxScrollExtent);
+      if (c.nextChapter == null && !c.loadingNext) c.setAutoScroll(false);
+      return;
+    }
+    _scroll.jumpTo(next);
+    _onScroll();
+  }
+
+  void _syncTicker() {
+    final run = c.autoScrolling && !c.uiVisible;
+    if (run && !_ticker.isActive) {
+      _lastTick = Duration.zero;
+      _ticker.start();
+    } else if (!run && _ticker.isActive) {
+      _ticker.stop();
+    }
+  }
 
   @override
   void initState() {
@@ -64,6 +95,7 @@ class _VerticalReaderState extends State<VerticalReader> {
   @override
   void dispose() {
     _steps?.cancel();
+    _ticker.dispose();
     _throttle?.cancel();
     _scroll.dispose();
     _transform.dispose();
@@ -170,6 +202,9 @@ class _VerticalReaderState extends State<VerticalReader> {
   @override
   Widget build(BuildContext context) {
     _syncAnchor();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncTicker();
+    });
     _items = _flatten();
     _marks.removeWhere((k, _) => k >= _items.length);
     final anchor = _anchorFlat.clamp(0, _items.isEmpty ? 0 : _items.length - 1);
@@ -179,7 +214,11 @@ class _VerticalReaderState extends State<VerticalReader> {
         if (n is ScrollUpdateNotification || n is ScrollEndNotification) _onScroll();
         return false;
       },
-      child: GestureDetector(
+      child: Listener(
+        onPointerDown: (_) => _finger = true,
+        onPointerUp: (_) => _finger = false,
+        onPointerCancel: (_) => _finger = false,
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: _onTapUp,
         onDoubleTapDown: (d) => _doubleTap = d,
@@ -216,6 +255,7 @@ class _VerticalReaderState extends State<VerticalReader> {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -229,23 +269,113 @@ class _ChapterEndCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLastLoaded = segment == c.segments.last;
     final next = segment.index + 1 < c.ordered.length ? c.ordered[segment.index + 1] : null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter, vertical: MfSpace.xxxl),
+      child: ChapterFinishCard(
+        finished: segment.chapter,
+        next: next,
+        remaining: c.ordered.length - segment.index - 1,
+        loading: isLastLoaded && c.loadingNext,
+        // in the strip the next chapter streams in below; the button jumps straight to it
+        onNext: next == null ? null : () => c.openChapter(segment.index + 1),
+      ),
+    );
+  }
+}
+
+/// "Chapter finished" card shared by both reading modes.
+class ChapterFinishCard extends StatelessWidget {
+  const ChapterFinishCard({
+    super.key,
+    required this.finished,
+    required this.next,
+    required this.remaining,
+    required this.onNext,
+    this.loading = false,
+  });
+
+  final Chapter finished;
+  final Chapter? next;
+  final int remaining;
+  final VoidCallback? onNext;
+  final bool loading;
+
+  String _plural(int n) {
+    final m10 = n % 10, m100 = n % 100;
+    if (m10 == 1 && m100 != 11) return 'глава';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'главы';
+    return 'глав';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = MfColors.accent;
     return Container(
-      height: 220,
-      alignment: Alignment.center,
+      constraints: const BoxConstraints(maxWidth: 460),
       padding: const EdgeInsets.all(MfSpace.xl),
+      decoration: BoxDecoration(
+        color: const Color(0xFF17181C),
+        borderRadius: BorderRadius.circular(MfRadius.xl),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        gradient: RadialGradient(
+          center: const Alignment(0, -1.2),
+          radius: 1.4,
+          colors: [accent.withValues(alpha: 0.18), const Color(0xFF17181C)],
+        ),
+      ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('Конец: ${segment.chapter.title}', style: MfType.label.copyWith(color: Colors.white60), textAlign: TextAlign.center),
-        const SizedBox(height: MfSpace.sm),
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: accent,
+            boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 20)],
+          ),
+          child: Icon(Icons.check_rounded, color: MfColors.onAccent, size: 30),
+        ),
+        const SizedBox(height: MfSpace.md),
+        Text('Глава прочитана', style: MfType.title.copyWith(color: Colors.white)),
+        const SizedBox(height: MfSpace.xs),
+        Text(finished.title, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+            style: MfType.bodySmall.copyWith(color: Colors.white60)),
+        const SizedBox(height: MfSpace.lg),
         if (next == null)
-          Text('Это последняя доступная глава', style: MfType.titleSmall.copyWith(color: Colors.white))
+          Text('Это последняя доступная глава.\nНовые появятся в «Обновлениях».',
+              textAlign: TextAlign.center, style: MfType.body.copyWith(color: Colors.white70))
         else ...[
-          Text('Далее: ${next.title}', style: MfType.titleSmall.copyWith(color: Colors.white), textAlign: TextAlign.center),
-          if (isLastLoaded) ...[
-            const SizedBox(height: MfSpace.md),
-            c.loadingNext
-                ? const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.5))
-                : FilledButton(onPressed: () => c.openChapter(segment.index + 1), child: const Text('Следующая глава')),
-          ],
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(MfSpace.md),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(MfRadius.md),
+            ),
+            child: Row(children: [
+              Icon(Icons.arrow_downward_rounded, color: accent, size: 20),
+              const SizedBox(width: MfSpace.sm),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Далее', style: MfType.caption.copyWith(color: Colors.white54)),
+                  Text(next!.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MfType.bodyStrong.copyWith(color: Colors.white)),
+                ]),
+              ),
+            ]),
+          ),
+          const SizedBox(height: MfSpace.md),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: loading
+                ? const Center(child: SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 2.5)))
+                : FilledButton.icon(
+                    onPressed: onNext,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Следующая глава'),
+                  ),
+          ),
+          const SizedBox(height: MfSpace.sm),
+          Text('Ещё $remaining ${_plural(remaining)} впереди', style: MfType.caption.copyWith(color: Colors.white38)),
         ],
       ]),
     );
@@ -454,18 +584,18 @@ class _PagedEnd extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final next = c.nextChapter;
+    final seg = c.current;
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(MfSpace.xxl),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('Глава прочитана', style: MfType.title.copyWith(color: Colors.white)),
-          const SizedBox(height: MfSpace.sm),
-          Text(next == null ? 'Это последняя доступная глава' : 'Далее: ${next.title}',
-              style: MfType.body.copyWith(color: Colors.white70), textAlign: TextAlign.center),
-          const SizedBox(height: MfSpace.xl),
-          if (next != null) FilledButton(onPressed: c.goNextChapter, child: const Text('Следующая глава')),
-        ]),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(MfSpace.gutter),
+        child: seg == null
+            ? const SizedBox.shrink()
+            : ChapterFinishCard(
+                finished: seg.chapter,
+                next: c.nextChapter,
+                remaining: c.ordered.length - seg.index - 1,
+                onNext: c.nextChapter == null ? null : c.goNextChapter,
+              ),
       ),
     );
   }

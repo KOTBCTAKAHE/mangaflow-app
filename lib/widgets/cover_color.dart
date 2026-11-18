@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'effects.dart';
+import 'net_image.dart';
 
 /// Dominant "vibrant" colour of a cover, tuned to be readable on dark UI.
 ///
@@ -14,9 +14,8 @@ import 'effects.dart';
 final coverTintProvider = FutureProvider.family<Color?, String>((ref, url) async {
   if (url.isEmpty) return null;
   ref.keepAlive();
-  final src = url.contains('?') ? url : '$url?w=160';
   try {
-    final image = await _load(ResizeImage(CachedNetworkImageProvider(src), width: 24, height: 34));
+    final image = await _load(ResizeImage(netImage(withWidth(url, 160)), width: 24, height: 34));
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     image.dispose();
     if (data == null) return null;

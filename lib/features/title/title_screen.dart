@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +17,7 @@ import '../../data/services/download_manager.dart';
 import '../../widgets/cover_color.dart';
 import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
+import '../../widgets/net_image.dart';
 import '../../widgets/states.dart';
 import '../downloads_support.dart';
 import '../library/library_actions.dart';
@@ -85,15 +85,21 @@ class _TitleScreenState extends ConsumerState<TitleScreen> {
             }, onClearSelection: () => setState(_selected.clear)),
           ),
         ),
-        bottomNavigationBar: _selecting && title.hasValue
-            ? _SelectionBar(
-                data: title.value!,
-                k: k,
-                selected: _selected,
-                onDone: () => setState(_selected.clear),
-                onSelectAll: () => setState(() => _selected.addAll(title.value!.chapters.map((c) => c.id))),
-              )
-            : null,
+        extendBody: true,
+        bottomNavigationBar: !title.hasValue
+            ? null
+            : AnimatedSwitcher(
+                duration: MfMotion.base,
+                child: _selecting
+                    ? _SelectionBar(
+                        data: title.value!,
+                        k: k,
+                        selected: _selected,
+                        onDone: () => setState(_selected.clear),
+                        onSelectAll: () => setState(() => _selected.addAll(title.value!.chapters.map((c) => c.id))),
+                      )
+                    : _ReadBar(data: title.value!, k: k),
+              ),
       ),
       ),
     );
@@ -121,7 +127,8 @@ class _Body extends ConsumerWidget {
 
     return CustomScrollView(slivers: [
       _Header(manga: m, fromCache: data.fromCache),
-      SliverToBoxAdapter(child: _Actions(data: data, k: k, progress: progress)),
+      if (data.chapters.isNotEmpty)
+        SliverToBoxAdapter(child: _ProgressStrip(read: readCount, total: data.chapters.length)),
       SliverToBoxAdapter(child: _Info(manga: m)),
       SliverToBoxAdapter(
         child: Padding(
@@ -203,7 +210,7 @@ class _Body extends ConsumerWidget {
             );
           },
         ),
-      SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, MfSpace.huge * 2))),
+      SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120))),
     ]);
   }
 }
@@ -238,7 +245,7 @@ class _Header extends StatelessWidget {
           if (manga.coverUrl.isNotEmpty)
             ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-              child: CachedNetworkImage(imageUrl: '${manga.coverUrl}?w=320', fit: BoxFit.cover),
+              child: Image(image: netImage(withWidth(manga.coverUrl, 160)), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
             ),
           DecoratedBox(
             decoration: BoxDecoration(
@@ -267,7 +274,7 @@ class _Header extends StatelessWidget {
             right: MfSpace.gutter,
             bottom: MfSpace.lg,
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              MangaCover(url: manga.coverUrl, width: 132, heroTag: 'title-${manga.sourceId}:${manga.id}', thumbWidth: 480),
+              MangaCover(url: manga.coverUrl, width: 132, heroTag: 'title-${manga.sourceId}:${manga.id}'),
               const SizedBox(width: MfSpace.lg),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -298,6 +305,79 @@ class _Header extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+/// Frosted bottom bar: Read/Continue + library + favorite, always in reach of the thumb.
+class _ReadBar extends ConsumerWidget {
+  const _ReadBar({required this.data, required this.k});
+  final TitleData data;
+  final TitleKey k;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(titleProgressProvider(k)).valueOrNull ?? const <String, ChapterProgress>{};
+    return Glass(
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: MfSpace.md),
+          child: _Actions(data: data, k: k, progress: progress),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Прочитано 34 из 120" with a tinted bar.
+class _ProgressStrip extends StatelessWidget {
+  const _ProgressStrip({required this.read, required this.total});
+  final int read;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = total == 0 ? 0.0 : read / total;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.lg, MfSpace.gutter, 0),
+      child: Container(
+        padding: const EdgeInsets.all(MfSpace.md),
+        decoration: BoxDecoration(
+          color: context.colors.surfaceContainer,
+          borderRadius: BorderRadius.circular(MfRadius.lg),
+        ),
+        child: Row(children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Stack(alignment: Alignment.center, children: [
+              CircularProgressIndicator(
+                value: f,
+                strokeWidth: 4,
+                strokeCap: StrokeCap.round,
+                backgroundColor: context.colors.surfaceContainerHighest,
+              ),
+              Text('${(f * 100).round()}%', style: MfType.caption.copyWith(fontSize: 10, color: context.colors.onSurface)),
+            ]),
+          ),
+          const SizedBox(width: MfSpace.md),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(read == 0 ? 'Ещё не начато' : (read >= total ? 'Прочитано полностью' : 'Прочитано $read из $total'),
+                  style: MfType.bodyStrong.copyWith(color: context.colors.onSurface)),
+              Text('$total ${_chaptersWord(total)} доступно', style: context.text.bodySmall),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  static String _chaptersWord(int n) {
+    final m10 = n % 10, m100 = n % 100;
+    if (m10 == 1 && m100 != 11) return 'глава';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'главы';
+    return 'глав';
   }
 }
 
@@ -530,6 +610,11 @@ class _ChapterTile extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.only(right: MfSpace.md),
                   child: Icon(Icons.circle, size: 8, color: context.colors.primary),
+                )
+              else if (read)
+                Padding(
+                  padding: const EdgeInsets.only(right: MfSpace.sm),
+                  child: Icon(Icons.check_rounded, size: 16, color: context.textTertiary),
                 ),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [

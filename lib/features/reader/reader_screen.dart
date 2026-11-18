@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +12,7 @@ import '../../data/models/manga.dart';
 import '../../data/models/settings.dart';
 import '../../data/services/volume_keys.dart';
 import '../../widgets/effects.dart';
+import '../../widgets/net_image.dart';
 import '../../widgets/manga_widgets.dart' show showFullTitle;
 import '../../widgets/states.dart';
 import 'reader_controller.dart';
@@ -122,10 +122,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               return const Center(child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70));
             }
             return Stack(fit: StackFit.expand, children: [
-              if (c.mode.isPaged)
-                PagedReader(c: c, tapZones: s.tapZones)
-              else
-                VerticalReader(c: c, tapZones: s.tapZones),
+              _Warmth(
+                warmth: s.readerWarmth,
+                child: c.mode.isPaged
+                    ? PagedReader(c: c, tapZones: s.tapZones)
+                    : VerticalReader(c: c, tapZones: s.tapZones),
+              ),
               // in-app brightness (works without system permission)
               IgnorePointer(
                 child: ColoredBox(color: Colors.black.withValues(alpha: (1 - s.readerBrightness).clamp(0.0, 0.85))),
@@ -137,6 +139,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 ),
               _MiniIndicator(c: c),
               _Overlay(c: c),
+              if (s.tapZones) _TapHint(c: c),
             ]);
           },
         ),
@@ -177,6 +180,8 @@ class _MiniIndicator extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text('${c.page + 1} / ${c.pageCount}', style: MfType.caption.copyWith(color: Colors.white70)),
+                Text('  ·  ', style: MfType.caption.copyWith(color: Colors.white30)),
+                const _Clock(),
               ]),
             ),
           ),
@@ -267,6 +272,7 @@ class _Overlay extends ConsumerWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(MfSpace.sm, MfSpace.sm, MfSpace.sm, pad.bottom + MfSpace.sm),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (!c.mode.isPaged) _AutoScrollBar(c: c),
             if (seg != null && c.pageCount > 1)
               Directionality(
                 textDirection: c.mode.isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -348,8 +354,7 @@ ImageProvider thumbProvider(PageRef p) {
   if (p.localPath != null) return pageImageProvider(p, cacheWidth: 120);
   final uri = Uri.tryParse(p.url);
   if (uri == null) return pageImageProvider(p, cacheWidth: 120);
-  final url = uri.replace(queryParameters: {...uri.queryParameters, 'w': '160'}).toString();
-  return ResizeImage(CachedNetworkImageProvider(url), width: 120);
+  return netImage(withWidth(p.url, 160), decodeWidth: 120);
 }
 
 /// Lazy horizontal strip of page thumbnails; tap to jump.
@@ -432,6 +437,196 @@ class _ThumbStripState extends State<_ThumbStrip> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Warm "night light" tint multiplied over the pages.
+class _Warmth extends StatelessWidget {
+  const _Warmth({required this.warmth, required this.child});
+  final double warmth;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (warmth <= 0.01) return child;
+    final tint = Color.lerp(Colors.white, const Color(0xFFFFB366), warmth.clamp(0.0, 1.0))!;
+    return ColorFiltered(colorFilter: ColorFilter.mode(tint, BlendMode.multiply), child: child);
+  }
+}
+
+class _Clock extends StatefulWidget {
+  const _Clock();
+
+  @override
+  State<_Clock> createState() => _ClockState();
+}
+
+class _ClockState extends State<_Clock> {
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final n = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return Text('${two(n.hour)}:${two(n.minute)}', style: MfType.caption.copyWith(color: Colors.white70));
+  }
+}
+
+/// Webtoon auto-scroll: play/pause + speed.
+class _AutoScrollBar extends ConsumerWidget {
+  const _AutoScrollBar({required this.c});
+  final ReaderController c;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final speed = ref.watch(settingsProvider.select((s) => s.autoScrollSpeed));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: MfSpace.xs),
+      child: Row(children: [
+        const SizedBox(width: MfSpace.xs),
+        FilledButton.tonalIcon(
+          style: FilledButton.styleFrom(
+            backgroundColor: c.autoScrolling ? MfColors.accent : Colors.white.withValues(alpha: 0.1),
+            foregroundColor: c.autoScrolling ? MfColors.onAccent : Colors.white,
+            visualDensity: VisualDensity.compact,
+          ),
+          onPressed: () {
+            HapticFeedback.selectionClick();
+            c.setAutoScroll(!c.autoScrolling);
+          },
+          icon: Icon(c.autoScrolling ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 20),
+          label: Text(c.autoScrolling ? 'Пауза' : 'Автопрокрутка'),
+        ),
+        const SizedBox(width: MfSpace.sm),
+        const Icon(Icons.speed_rounded, size: 18, color: Colors.white54),
+        Expanded(
+          child: Slider(
+            value: speed.clamp(30.0, 600.0),
+            min: 30,
+            max: 600,
+            onChanged: (v) => ref.read(settingsProvider.notifier).updateLocalOnly((x) => x.copyWith(autoScrollSpeed: v)),
+            onChangeEnd: (v) => ref.read(settingsProvider.notifier).update((x) => x.copyWith(autoScrollSpeed: v)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// First-run overlay explaining the tap zones (once per layout: paged / strip).
+class _TapHint extends ConsumerStatefulWidget {
+  const _TapHint({required this.c});
+  final ReaderController c;
+
+  @override
+  ConsumerState<_TapHint> createState() => _TapHintState();
+}
+
+class _TapHintState extends ConsumerState<_TapHint> {
+  bool _visible = false;
+  String? _key;
+  Timer? _hide;
+
+  @override
+  void dispose() {
+    _hide?.cancel();
+    super.dispose();
+  }
+
+  void _maybeShow() {
+    final key = 'reader_hint_${widget.c.mode.isPaged ? 'paged' : 'strip'}';
+    if (key == _key) return;
+    _key = key;
+    final prefs = ref.read(prefsProvider);
+    if (prefs.getBool(key) ?? false) return;
+    unawaited(prefs.setBool(key, true));
+    setState(() => _visible = true);
+    _hide?.cancel();
+    _hide = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.c;
+    if (c.pageCount > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeShow();
+      });
+    }
+    final paged = c.mode.isPaged;
+    final rtl = c.mode.isRtl;
+    Widget zone(String label, IconData icon, {bool center = false}) => Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: center ? MfColors.accent.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(MfRadius.lg),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            alignment: Alignment.center,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, color: Colors.white, size: 30),
+              const SizedBox(height: MfSpace.xs),
+              Text(label, textAlign: TextAlign.center, style: MfType.label.copyWith(color: Colors.white)),
+            ]),
+          ),
+        );
+    final children = paged
+        ? [
+            zone(rtl ? 'Далее' : 'Назад', Icons.chevron_left_rounded),
+            zone('Меню', Icons.touch_app_rounded, center: true),
+            zone(rtl ? 'Назад' : 'Далее', Icons.chevron_right_rounded),
+          ]
+        : [
+            zone('Вверх', Icons.keyboard_arrow_up_rounded),
+            zone('Меню\nили просто листайте', Icons.touch_app_rounded, center: true),
+            zone('Вниз', Icons.keyboard_arrow_down_rounded),
+          ];
+    return IgnorePointer(
+      ignoring: !_visible,
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: MfMotion.base,
+        child: GestureDetector(
+          onTap: () => setState(() => _visible = false),
+          child: ColoredBox(
+            color: Colors.black.withValues(alpha: 0.55),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(MfSpace.sm),
+                child: paged
+                    ? Row(children: [
+                        Expanded(flex: 3, child: Column(children: [children[0]])),
+                        Expanded(flex: 4, child: Column(children: [children[1]])),
+                        Expanded(flex: 3, child: Column(children: [children[2]])),
+                      ])
+                    : Column(children: [
+                        Expanded(flex: 22, child: Row(children: [children[0]])),
+                        Expanded(flex: 56, child: Row(children: [children[1]])),
+                        Expanded(flex: 22, child: Row(children: [children[2]])),
+                      ]),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

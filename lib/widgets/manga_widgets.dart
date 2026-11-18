@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,35 +5,47 @@ import '../core/theme/app_theme.dart';
 import '../core/theme/tokens.dart';
 import '../data/models/manga.dart';
 import 'effects.dart';
+import 'net_image.dart';
 import 'states.dart';
 
 /// Cover image with rounded corners, placeholder and graceful failure.
+///
+/// Requests a server-side resize matched to the real on-screen size × device
+/// pixel ratio, so covers stay crisp on 3x screens without loading originals.
 class MangaCover extends StatelessWidget {
-  const MangaCover({super.key, required this.url, this.width, this.radius = MfRadius.md, this.heroTag, this.thumbWidth = 320, this.shadow = true});
+  const MangaCover({super.key, required this.url, this.width, this.radius = MfRadius.md, this.heroTag, this.thumbWidth, this.shadow = true});
   final String url;
-  final bool shadow;
   final double? width;
   final double radius;
   final Object? heroTag;
+  final bool shadow;
 
-  /// Server-side resize width (`?w=`) to save memory/traffic in lists.
+  /// Force a proxy width; by default it is derived from the layout.
   final int? thumbWidth;
-
-  String get _src => (thumbWidth == null || url.isEmpty || url.contains('?')) ? url : '$url?w=$thumbWidth';
 
   @override
   Widget build(BuildContext context) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    Widget img = url.isEmpty
-        ? _Fallback(radius: radius)
-        : CachedNetworkImage(
-            imageUrl: _src,
-            fit: BoxFit.cover,
-            fadeInDuration: MfMotion.base,
-            memCacheWidth: width == null ? null : (width! * dpr).round(),
-            placeholder: (_, __) => Skeleton(radius: radius),
-            errorWidget: (_, __, ___) => _Fallback(radius: radius),
+    Widget img = LayoutBuilder(builder: (context, box) {
+      if (url.isEmpty) return _Fallback(radius: radius);
+      final logical = width ?? (box.maxWidth.isFinite ? box.maxWidth : 160.0);
+      final proxyW = thumbWidth ?? fitProxyWidth(logical, dpr);
+      return Image(
+        image: netImage(withWidth(url, proxyW), decodeWidth: (logical * dpr).round()),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        filterQuality: FilterQuality.medium,
+        frameBuilder: (context, child, frame, sync) {
+          if (sync) return child;
+          return AnimatedSwitcher(
+            duration: MfMotion.base,
+            child: frame == null ? Skeleton(key: const ValueKey('s'), radius: radius) : KeyedSubtree(key: const ValueKey('i'), child: child),
           );
+        },
+        errorBuilder: (_, __, ___) => _Fallback(radius: radius),
+      );
+    });
     img = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),

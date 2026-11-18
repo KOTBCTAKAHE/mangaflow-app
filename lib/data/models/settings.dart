@@ -69,6 +69,8 @@ class AppSettings {
     this.libraryView = LibraryView.grid,
     this.volumeKeys = false,
     this.volumeKeysInverted = false,
+    this.readerWarmth = 0,
+    this.autoScrollSpeed = 120,
   });
 
   final String apiBaseUrl;
@@ -98,6 +100,12 @@ class AppSettings {
 
   /// false: volume-down = next page; true: volume-up = next page.
   final bool volumeKeysInverted;
+
+  /// Night-reading warm filter strength, 0 = off (device-local, like brightness).
+  final double readerWarmth;
+
+  /// Webtoon auto-scroll speed in logical px/s.
+  final double autoScrollSpeed;
   final DateTime updatedAt;
 
   AppSettings copyWith({
@@ -122,6 +130,8 @@ class AppSettings {
     LibraryView? libraryView,
     bool? volumeKeys,
     bool? volumeKeysInverted,
+    double? readerWarmth,
+    double? autoScrollSpeed,
     DateTime? updatedAt,
   }) =>
       AppSettings(
@@ -146,6 +156,8 @@ class AppSettings {
         libraryView: libraryView ?? this.libraryView,
         volumeKeys: volumeKeys ?? this.volumeKeys,
         volumeKeysInverted: volumeKeysInverted ?? this.volumeKeysInverted,
+        readerWarmth: readerWarmth ?? this.readerWarmth,
+        autoScrollSpeed: autoScrollSpeed ?? this.autoScrollSpeed,
         updatedAt: updatedAt ?? DateTime.now().toUtc(),
       );
 
@@ -170,12 +182,14 @@ class AppSettings {
         'library_view': libraryView.api,
         'volume_keys': volumeKeys,
         'volume_keys_inverted': volumeKeysInverted,
+        'auto_scroll_speed': autoScrollSpeed,
       };
 
   Map<String, dynamic> toJson() => {
         ...toSyncJson(),
         'api_base_url': apiBaseUrl,
         'reader_brightness': readerBrightness,
+        'reader_warmth': readerWarmth,
         'updated_at': updatedAt.toIso8601String(),
       };
 
@@ -204,6 +218,8 @@ class AppSettings {
       libraryView: LibraryView.parse(j['library_view'] as String?),
       volumeKeys: j['volume_keys'] as bool? ?? false,
       volumeKeysInverted: j['volume_keys_inverted'] as bool? ?? false,
+      readerWarmth: (j['reader_warmth'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
+      autoScrollSpeed: (j['auto_scroll_speed'] as num?)?.toDouble().clamp(30.0, 600.0) ?? 120,
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
@@ -213,6 +229,7 @@ class AppSettings {
     final merged = {...toJson(), ...remote, 'updated_at': remoteUpdatedAt.toIso8601String()};
     merged['api_base_url'] = apiBaseUrl;
     merged['reader_brightness'] = readerBrightness;
+    merged['reader_warmth'] = readerWarmth;
     return AppSettings.fromJson(merged, fallbackUrl: apiBaseUrl);
   }
 }

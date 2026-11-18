@@ -81,7 +81,7 @@ class HistoryScreen extends ConsumerWidget {
                 ref.read(dataVersionProvider.notifier).state++;
               },
               child: ListTile(
-                leading: MangaCover(url: h.coverUrl, width: 44, radius: MfRadius.xs, thumbWidth: 160),
+                leading: MangaCover(url: h.coverUrl, width: 44, radius: MfRadius.xs),
                 title: Text(h.mangaTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text('${h.chapterTitle} · ${formatDuration(h.durationSeconds)}', maxLines: 1),
                 trailing: IconButton(

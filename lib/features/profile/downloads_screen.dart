@@ -130,7 +130,7 @@ class _Group extends ConsumerWidget {
     final done = tasks.where((t) => t.status == DownloadStatus.completed).length;
     final m = ref.read(downloadManagerProvider);
     return ExpansionTile(
-      leading: MangaCover(url: first.coverUrl, width: 40, radius: MfRadius.xs, thumbWidth: 160),
+      leading: MangaCover(url: first.coverUrl, width: 40, radius: MfRadius.xs),
       title: Text(first.mangaTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text('$done из ${tasks.length} глав'),
       children: [

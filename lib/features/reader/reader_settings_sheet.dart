@@ -32,13 +32,21 @@ class _ReaderSettings extends ConsumerWidget {
         maxChildSize: 0.95,
         builder: (context, scroll) => ListView(controller: scroll, children: [
           _h(context, 'Режим для этого тайтла'),
-          for (final m in ReadingMode.values)
-            RadioListTile<ReadingMode>(
-              value: m,
-              groupValue: c.mode,
-              title: Text(m.label),
-              onChanged: (v) => v == null ? null : c.setMode(v),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
+            child: GridView.count(
+              crossAxisCount: 4,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: MfSpace.sm,
+              crossAxisSpacing: MfSpace.sm,
+              childAspectRatio: 0.82,
+              children: [
+                for (final m in ReadingMode.values)
+                  _ModeCard(mode: m, selected: c.mode == m, onTap: () => c.setMode(m)),
+              ],
             ),
+          ),
           _h(context, 'Яркость'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: MfSpace.lg),
@@ -55,6 +63,39 @@ class _ReaderSettings extends ConsumerWidget {
               const Icon(Icons.brightness_high_rounded),
             ]),
           ),
+          _h(context, 'Тёплый свет (для чтения ночью)'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: MfSpace.lg),
+            child: Row(children: [
+              const Icon(Icons.wb_sunny_outlined),
+              Expanded(
+                child: Slider(
+                  value: s.readerWarmth.clamp(0.0, 1.0),
+                  onChanged: (v) => ctrl.updateLocalOnly((x) => x.copyWith(readerWarmth: v)),
+                ),
+              ),
+              const Icon(Icons.nightlight_round, color: Color(0xFFFFB366)),
+            ]),
+          ),
+          if (!c.mode.isPaged) ...[
+            _h(context, 'Скорость автопрокрутки'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: MfSpace.lg),
+              child: Row(children: [
+                const Icon(Icons.directions_walk_rounded),
+                Expanded(
+                  child: Slider(
+                    value: s.autoScrollSpeed.clamp(30.0, 600.0),
+                    min: 30,
+                    max: 600,
+                    onChanged: (v) => ctrl.updateLocalOnly((x) => x.copyWith(autoScrollSpeed: v)),
+                    onChangeEnd: (v) => ctrl.update((x) => x.copyWith(autoScrollSpeed: v)),
+                  ),
+                ),
+                const Icon(Icons.directions_run_rounded),
+              ]),
+            ),
+          ],
           _h(context, 'Фон'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
@@ -147,4 +188,38 @@ class _ReaderSettings extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.xl, MfSpace.gutter, MfSpace.sm),
         child: Text(t.toUpperCase(), style: context.text.labelSmall),
       );
+}
+
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({required this.mode, required this.selected, required this.onTap});
+  final ReadingMode mode;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, label) = switch (mode) {
+      ReadingMode.vertical => (Icons.view_day_outlined, 'Лента'),
+      ReadingMode.pagedLtr => (Icons.east_rounded, 'Слева\nнаправо'),
+      ReadingMode.pagedRtl => (Icons.west_rounded, 'Справа\nналево'),
+      ReadingMode.doublePage => (Icons.menu_book_outlined, 'Разворот'),
+    };
+    return Material(
+      color: selected ? MfColors.accentSoft : context.colors.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(MfRadius.md),
+        side: BorderSide(color: selected ? MfColors.accent : Colors.transparent, width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: selected ? MfColors.accent : context.colors.onSurfaceVariant),
+          const SizedBox(height: MfSpace.xs),
+          Text(label, textAlign: TextAlign.center, maxLines: 2,
+              style: MfType.caption.copyWith(color: selected ? MfColors.accent : context.colors.onSurface)),
+        ]),
+      ),
+    );
+  }
 }

@@ -248,7 +248,7 @@ class _ListRow extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(MfSpace.sm),
             child: Row(children: [
-              MangaCover(url: e.coverUrl, width: 64, thumbWidth: 160, radius: MfRadius.sm, heroTag: 'lib-row-${e.key}'),
+              MangaCover(url: e.coverUrl, width: 64, radius: MfRadius.sm, heroTag: 'lib-row-${e.key}'),
               const SizedBox(width: MfSpace.md),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

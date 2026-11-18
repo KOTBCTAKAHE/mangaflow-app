@@ -1,0 +1,55 @@
+name: Screenshots
+
+# Renders key screens with fake data (screenshots/app_screens_test.dart) and
+# publishes the PNGs to the `screenshots` branch for design review.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["lib/**", "screenshots/**", "assets/**", "pubspec.yaml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libsqlite3-dev >/dev/null
+          flutter pub get
+
+      - name: Render
+        run: |
+          set +e
+          flutter test --update-goldens --reporter expanded screenshots/ 2>&1 | tee screenshots/render.log
+          echo "exit=${PIPESTATUS[0]}" >> screenshots/render.log
+          true
+        shell: bash
+
+      - name: Publish to screenshots branch
+        run: |
+          mkdir -p /tmp/shots
+          cp -r screenshots/out/. /tmp/shots/ 2>/dev/null || true
+          cp screenshots/render.log /tmp/shots/
+          echo "${GITHUB_SHA}" > /tmp/shots/SHA
+          cd /tmp/shots
+          git init -q -b screenshots
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "Screenshots for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" screenshots

@@ -90,7 +90,7 @@ class _UpdatesScreenState extends ConsumerState<UpdatesScreen> {
                 itemBuilder: (context, i) {
                   final u = list[i];
                   return ListTile(
-                    leading: MangaCover(url: u.coverUrl, width: 44, radius: MfRadius.xs, thumbWidth: 160),
+                    leading: MangaCover(url: u.coverUrl, width: 44, radius: MfRadius.xs),
                     title: Text(u.mangaTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: u.seen ? null : const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: Text('${u.chapterTitle} · ${formatDate(u.detectedAt)}', maxLines: 1),

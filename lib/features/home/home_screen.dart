@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +13,7 @@ import '../../data/models/manga.dart';
 import '../../data/models/reading.dart';
 import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
+import '../../widgets/net_image.dart';
 import '../../widgets/states.dart';
 
 final sourcesProvider = FutureProvider<List<SourceInfo>>((ref) {
@@ -78,6 +78,7 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(width: MfSpace.xs),
               ],
             ),
+            const SliverToBoxAdapter(child: _Greeting()),
             const SliverToBoxAdapter(child: _ContinueReading()),
             if (sources.hasError && list.isEmpty)
               SliverFillRemaining(
@@ -120,7 +121,7 @@ class _ContinueReading extends ConsumerWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeader(title: 'Продолжить чтение', onMore: () => context.push('/history')),
       SizedBox(
-        height: 132,
+        height: 130,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
@@ -139,47 +140,119 @@ class _ContinueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = (MediaQuery.sizeOf(context).width * 0.78).clamp(260.0, 360.0);
+    final width = (MediaQuery.sizeOf(context).width * 0.8).clamp(270.0, 380.0);
     return SizedBox(
       width: width,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
+      child: PressableScale(
+        scale: 0.98,
+        child: GestureDetector(
           onTap: () => context.push(Routes.reader(item.sourceId, item.mangaId, item.chapterId)),
           onLongPress: () => context.push(Routes.title(item.sourceId, item.mangaId)),
-          child: Padding(
-            padding: const EdgeInsets.all(MfSpace.md),
-            child: Row(children: [
-              MangaCover(url: item.coverUrl, width: 76, radius: MfRadius.sm, thumbWidth: 160),
-              const SizedBox(width: MfSpace.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: context.text.titleMedium),
-                    const SizedBox(height: MfSpace.xs),
-                    Text(item.chapterTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.bodySmall),
-                    const SizedBox(height: MfSpace.md),
-                    Row(children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(MfRadius.pill),
-                          child: LinearProgressIndicator(value: item.fraction, minHeight: 4),
-                        ),
-                      ),
-                      const SizedBox(width: MfSpace.sm),
-                      Text('${(item.fraction * 100).round()}%', style: context.text.labelMedium),
-                    ]),
-                  ],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(MfRadius.lg),
+            child: Stack(fit: StackFit.expand, children: [
+              if (item.coverUrl.isNotEmpty)
+                ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 24, sigmaY: 24, tileMode: TileMode.clamp),
+                  child: Transform.scale(
+                    scale: 1.4,
+                    child: Image(
+                      image: netImage(withWidth(item.coverUrl, 160)),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox(),
+                    ),
+                  ),
+                ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [Colors.black.withValues(alpha: 0.35), Colors.black.withValues(alpha: 0.7)],
+                  ),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  borderRadius: BorderRadius.circular(MfRadius.lg),
                 ),
               ),
-              const SizedBox(width: MfSpace.sm),
-              Icon(Icons.play_arrow_rounded, color: MfColors.accent),
+              Padding(
+                padding: const EdgeInsets.all(MfSpace.md),
+                child: Row(children: [
+                  MangaCover(url: item.coverUrl, width: 72, radius: MfRadius.sm),
+                  const SizedBox(width: MfSpace.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                            style: MfType.titleSmall.copyWith(color: Colors.white)),
+                        const SizedBox(height: 2),
+                        Text(item.chapterTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: MfType.bodySmall.copyWith(color: Colors.white70)),
+                        const SizedBox(height: MfSpace.md),
+                        Row(children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(MfRadius.pill),
+                              child: LinearProgressIndicator(
+                                value: item.fraction,
+                                minHeight: 4,
+                                color: MfColors.accent,
+                                backgroundColor: Colors.white24,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: MfSpace.sm),
+                          Text('${(item.fraction * 100).round()}%', style: MfType.caption.copyWith(color: Colors.white70)),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: MfSpace.md),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: MfColors.accent,
+                      boxShadow: [BoxShadow(color: MfColors.accent.withValues(alpha: 0.45), blurRadius: 14)],
+                    ),
+                    child: Icon(Icons.play_arrow_rounded, color: MfColors.onAccent),
+                  ),
+                ]),
+              ),
             ]),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// "Добрый вечер" + a short line, sets the tone of the home screen.
+class _Greeting extends StatelessWidget {
+  const _Greeting();
+
+  @override
+  Widget build(BuildContext context) {
+    final h = DateTime.now().hour;
+    final hello = h < 5
+        ? 'Доброй ночи'
+        : h < 12
+            ? 'Доброе утро'
+            : h < 18
+                ? 'Добрый день'
+                : h < 23
+                    ? 'Добрый вечер'
+                    : 'Доброй ночи';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.sm, MfSpace.gutter, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(hello, style: MfType.headline.copyWith(color: context.colors.onSurface)),
+        const SizedBox(height: 2),
+        Text(h >= 22 || h < 5 ? 'Самое время для пары глав перед сном' : 'Что почитаем сегодня?',
+            style: context.text.bodyMedium?.copyWith(color: context.textTertiary)),
+      ]),
     );
   }
 }
@@ -364,7 +437,6 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final thumb = card.coverUrl.contains('?') ? card.coverUrl : '${card.coverUrl}?w=320';
     final meta = [if (card.kind != null) card.kind!.label, if (card.sourceName != null) card.sourceName!].join(' · ');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: MfSpace.xs),
@@ -380,11 +452,10 @@ class _HeroCard extends StatelessWidget {
                 imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28, tileMode: TileMode.clamp),
                 child: Transform.scale(
                   scale: 1.3,
-                  child: CachedNetworkImage(
-                    imageUrl: thumb,
+                  child: Image(
+                    image: netImage(withWidth(card.coverUrl, 160)),
                     fit: BoxFit.cover,
-                    memCacheWidth: 200,
-                    errorWidget: (_, __, ___) => ColoredBox(color: context.colors.surfaceContainer),
+                    errorBuilder: (_, __, ___) => ColoredBox(color: context.colors.surfaceContainer),
                   ),
                 ),
               ),
