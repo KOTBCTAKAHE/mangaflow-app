@@ -96,7 +96,7 @@ class AppSettings {
     this.volumeKeysInverted = false,
     this.readerWarmth = 0,
     this.autoScrollSpeed = 120,
-    this.upscaleMode = UpscaleMode.off,
+    this.upscaleMode = UpscaleMode.auto,
     this.upscaleQuality = UpscaleQuality.fast,
   });
 
@@ -218,7 +218,7 @@ class AppSettings {
         'volume_keys': volumeKeys,
         'volume_keys_inverted': volumeKeysInverted,
         'auto_scroll_speed': autoScrollSpeed,
-        'upscale_mode': upscaleMode.api,
+        'upscale_mode_v2': upscaleMode.api,
         'upscale_quality': upscaleQuality.api,
       };
 
@@ -257,7 +257,7 @@ class AppSettings {
       volumeKeysInverted: j['volume_keys_inverted'] as bool? ?? false,
       readerWarmth: (j['reader_warmth'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
       autoScrollSpeed: (j['auto_scroll_speed'] as num?)?.toDouble().clamp(30.0, 600.0) ?? 120,
-      upscaleMode: UpscaleMode.parse(j['upscale_mode'] as String?),
+      upscaleMode: j['upscale_mode_v2'] == null ? UpscaleMode.auto : UpscaleMode.parse(j['upscale_mode_v2'] as String?),
       upscaleQuality: UpscaleQuality.parse(j['upscale_quality'] as String?),
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );

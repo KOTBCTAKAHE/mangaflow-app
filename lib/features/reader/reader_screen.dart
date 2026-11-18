@@ -18,6 +18,7 @@ import '../../widgets/manga_widgets.dart' show showFullTitle;
 import '../../widgets/states.dart';
 import 'reader_controller.dart';
 import 'reader_settings_sheet.dart';
+import 'upscale_compare_screen.dart';
 import 'reader_views.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
@@ -269,6 +270,18 @@ class _Overlay extends ConsumerWidget {
               ]),
               ),
             ),
+            if (c.upscaler != null && seg != null && seg.pages.isNotEmpty)
+              IconButton(
+                tooltip: 'Сравнить до/после улучшения',
+                color: fg,
+                icon: const Icon(Icons.compare_rounded),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => UpscaleCompareScreen(
+                    page: seg.pages[c.page.clamp(0, seg.pages.length - 1)],
+                    upscaler: c.upscaler!,
+                  ),
+                )),
+              ),
             IconButton(
               tooltip: 'Режим чтения',
               color: fg,

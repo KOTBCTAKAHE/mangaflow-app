@@ -104,9 +104,12 @@ class _StateNotifier extends ValueNotifier<UpscaleState> {
 }
 
 class _Job {
-  _Job(this.page, this.key);
+  _Job(this.page, this.key, {this.force = false});
   final PageRef page;
   final String key;
+
+  /// Ignore the "already sharp enough" width limit (comparison screen).
+  final bool force;
 }
 
 /// Queue + disk cache for AI-upscaled pages.
@@ -202,6 +205,20 @@ class PageUpscaler {
     _replaceQueue(order);
   }
 
+  /// Put one page at the front of the queue; [force] also upscales pages that
+  /// are already as wide as the screen (used by the before/after comparison).
+  void request(PageRef p, {bool force = false}) {
+    if (_disposed) return;
+    final k = keyFor(p);
+    final st = _notifier(k).value.status;
+    if (st == UpscaleStatus.done || k == _running?.key) return;
+    if (!force && (st == UpscaleStatus.skipped || st == UpscaleStatus.failed)) return;
+    _queue.removeWhere((j) => j.key == k);
+    _queue.insert(0, _Job(p, k, force: force));
+    _set(k, const UpscaleState(UpscaleStatus.queued));
+    _pump();
+  }
+
   /// Queue a whole chapter (after whatever is already focused).
   void enqueueAll(List<PageRef> pages) {
     if (!enabled || _disposed) return;
@@ -270,7 +287,7 @@ class PageUpscaler {
         input: src.path,
         output: out.path,
         quality: quality,
-        maxSourceWidth: maxSourceWidth,
+        maxSourceWidth: job.force ? 1 << 30 : maxSourceWidth,
       );
       switch (r.status) {
         case 'ok':

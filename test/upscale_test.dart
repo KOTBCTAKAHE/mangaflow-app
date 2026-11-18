@@ -164,4 +164,25 @@ void main() {
     expect(left, ['f3.jpg', 'f4.jpg']);
     small.dispose();
   });
+
+  test('request(force) jumps the queue and ignores the width limit', () async {
+    backend.gate = Completer();
+    up.focus(pages(5), 0, ahead: 2);
+    await idle(max: const Duration(milliseconds: 50));
+    up.request(pages(5)[4], force: true);
+    expect(up.watch(pages(5)[4]).value.status, UpscaleStatus.queued);
+    backend.gate!.complete();
+    await idle();
+    expect(backend.calls, ['src_0', 'src_4', 'src_1', 'src_2']);
+  });
+
+  test('settings: AI upscaling is on (auto) by default, also for installs that saved the old default', () {
+    expect(AppSettings(apiBaseUrl: 'x', updatedAt: DateTime.utc(2026)).upscaleMode, UpscaleMode.auto);
+    final old = AppSettings.fromJson({'upscale_mode': 'off'}, fallbackUrl: 'x');
+    expect(old.upscaleMode, UpscaleMode.auto);
+    final chosen = AppSettings.fromJson(
+        AppSettings(apiBaseUrl: 'x', updatedAt: DateTime.utc(2026), upscaleMode: UpscaleMode.off).toJson(),
+        fallbackUrl: 'x');
+    expect(chosen.upscaleMode, UpscaleMode.off);
+  });
 }
