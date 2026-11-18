@@ -1,4 +1,4 @@
-package com.mangaflow.mangaflow.upscale
+package com.mangaflow.upscale
 
 import kotlin.math.max
 import kotlin.math.min

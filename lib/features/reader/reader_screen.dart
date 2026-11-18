@@ -10,6 +10,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
 import '../../data/models/settings.dart';
+import '../../data/services/downloads/download_upscale.dart';
 import '../../data/services/upscale_service.dart';
 import '../../data/services/volume_keys.dart';
 import '../../widgets/effects.dart';
@@ -132,7 +133,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(settingsProvider);
-    _up.targetWidth = (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context)).round();
+    final tw = (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context)).round();
+    if (tw != _up.targetWidth) {
+      _up.targetWidth = tw;
+      unawaited(ref.read(prefsProvider).setInt(upscaleTargetWidthPref, tw)); // for the background service
+    }
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(

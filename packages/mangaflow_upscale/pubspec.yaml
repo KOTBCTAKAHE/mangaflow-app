@@ -1,0 +1,19 @@
+name: mangaflow_upscale
+description: On-device waifu2x page upscaling for MangaFlow (ONNX Runtime). Registered in every Flutter engine, including the background download service.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.mangaflow.upscale
+        pluginClass: UpscalePlugin

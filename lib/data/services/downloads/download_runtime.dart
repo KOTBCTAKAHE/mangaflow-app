@@ -14,6 +14,7 @@ import '../../../core/storage/database.dart';
 import '../../models/settings.dart';
 import '../../remote/catalog_api.dart';
 import 'download_engine.dart';
+import 'download_upscale.dart';
 
 /// connectivity_plus → [NetState].
 class ConnectivityProbe implements NetworkProbe {
@@ -166,6 +167,9 @@ void downloadServiceCallback() {
 
 class DownloadTaskHandler extends TaskHandler {
   DownloadEngine? _engine;
+  DownloadUpscaler? _upscaler;
+  UpscaleProgress? _up;
+  bool _paused = false;
   PrefsSettings? _settings;
   Database? _db;
   bool _destroyed = false;
@@ -177,6 +181,16 @@ class DownloadTaskHandler extends TaskHandler {
     _db = (await AppDatabase.open()).db; // shared native handle: never closed here
     _settings = PrefsSettings(await SharedPreferences.getInstance());
     _engine = buildEngine(db: _db!, owner: 'service', settings: () => _settings!.value, onProgress: _onProgress);
+    _upscaler = DownloadUpscaler(
+      db: _db!,
+      settings: () => _settings!.value,
+      prefs: await SharedPreferences.getInstance(),
+      onProgress: (p) {
+        _up = p;
+        unawaited(_notify());
+      },
+      shouldYield: () async => _destroyed || await _pendingDownloads() > 0,
+    );
     unawaited(_loop());
   }
 
@@ -187,12 +201,22 @@ class DownloadTaskHandler extends TaskHandler {
         await Future<void>.delayed(const Duration(seconds: 20));
         continue;
       }
+      if (_destroyed || _paused) break;
+      // Downloads are done: enhance the downloaded pages with AI (overnight mode).
+      await _upscaler!.run();
+      _up = null;
+      if (!_destroyed && !_paused && await _pendingDownloads() > 0) continue; // new chapters were queued meanwhile
       break; // idle or stopped
     }
     if (!_destroyed) {
       await _notify(force: true, finished: true);
       await FlutterForegroundTask.stopService();
     }
+  }
+
+  Future<int> _pendingDownloads() async {
+    final rows = await _db!.rawQuery("SELECT COUNT(*) AS n FROM downloads WHERE status IN ('queued','retrying','downloading')");
+    return (rows.first['n'] as int?) ?? 0;
   }
 
   void _onProgress(EngineEvent e) {
@@ -219,8 +243,15 @@ class DownloadTaskHandler extends TaskHandler {
     final e = _last;
     final String title;
     final String text;
-    if (finished) {
-      title = failed > 0 ? 'Загрузка завершена с ошибками' : 'Все главы загружены';
+    final up = _up;
+    if (!finished && up != null && pending == 0) {
+      title = 'Улучшение страниц (ИИ) · глав осталось ${up.chaptersLeft}';
+      text = '${[up.mangaTitle, up.chapterTitle].where((s) => s.isNotEmpty).join(' · ')} · стр. ${up.page}/${up.pages}';
+    } else if (finished) {
+      final enhanced = (_upscaler?.processed ?? 0) > 0;
+      title = failed > 0
+          ? 'Загрузка завершена с ошибками'
+          : (enhanced ? 'Главы загружены и улучшены' : 'Все главы загружены');
       text = failed > 0 ? 'Не удалось: $failed. Откройте «Загрузки», чтобы повторить.' : 'Можно читать без интернета';
     } else if (e?.state == 'waiting_network') {
       title = 'Ожидание сети';
@@ -250,6 +281,8 @@ class DownloadTaskHandler extends TaskHandler {
   }
 
   Future<void> _pauseAll() async {
+    _paused = true;
+    _upscaler?.stop();
     await _db?.update('downloads', {'status': 'paused'}, where: "status IN ('queued','retrying','downloading')");
     _engine?.stop();
     FlutterForegroundTask.sendDataToMain('changed');
@@ -264,6 +297,7 @@ class DownloadTaskHandler extends TaskHandler {
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     _destroyed = true;
     _engine?.stop();
+    _upscaler?.stop();
     _settings?.dispose();
   }
 }

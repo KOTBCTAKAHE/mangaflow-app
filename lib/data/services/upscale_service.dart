@@ -12,6 +12,17 @@ import '../models/settings.dart';
 
 enum UpscaleStatus { idle, queued, running, done, skipped, failed }
 
+/// Downloaded pages keep their upscaled copy next to them (survives cache cleanup,
+/// deleted with the chapter): `<chapter>/hd_<quality>/<page>.jpg`.
+String localHdPath(String localPath, UpscaleQuality q, {bool skipMarker = false}) {
+  final slash = localPath.lastIndexOf('/');
+  final dir = slash < 0 ? '.' : localPath.substring(0, slash);
+  var name = slash < 0 ? localPath : localPath.substring(slash + 1);
+  final dot = name.lastIndexOf('.');
+  if (dot > 0) name = name.substring(0, dot);
+  return '$dir/hd_${q.api}/$name${skipMarker ? '.skip' : '.jpg'}';
+}
+
 @immutable
 class UpscaleState {
   const UpscaleState(this.status, {this.file, this.message});
@@ -288,7 +299,13 @@ class PageUpscaler {
 
   Future<void> _process(_Job job) async {
     try {
-      final out = await _target(job.key);
+      final local = job.page.localPath;
+      if (local != null && !job.force && File(localHdPath(local, quality, skipMarker: true)).existsSync()) {
+        _set(job.key, const UpscaleState(UpscaleStatus.skipped, message: 'large_enough'));
+        return;
+      }
+      final out = local != null ? File(localHdPath(local, quality)) : await _target(job.key);
+      if (local != null) await out.parent.create(recursive: true);
       if (await out.exists()) {
         unawaited(out.setLastModified(DateTime.now()).catchError((Object _) {}));
         _set(job.key, UpscaleState(UpscaleStatus.done, file: out));

@@ -103,13 +103,9 @@ def patch_gradle() -> None:
             text = re.sub(r"compileOptions\s*\{", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", text, count=1)
         if "desugar_jdk_libs" not in text:
             text += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
-        if "onnxruntime-android" not in text:
-            text = text.replace(
-                'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
-                'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n'
-                '    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.24.3")\n'
-                '    testImplementation("junit:junit:4.13.2")',
-            )
+        # ONNX Runtime now comes with the local plugin packages/mangaflow_upscale
+        text = text.replace('    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.24.3")\n', "")
+        text = text.replace('    testImplementation("junit:junit:4.13.2")\n', "")
         if "MF_KEYSTORE" not in text:
             text = re.sub(r"    buildTypes \{.*?\n    \}\n", lambda _: SIGN_KTS + "\n", text, count=1, flags=re.S)
         kts.write_text(text)
@@ -182,6 +178,8 @@ def copy_native_sources() -> None:
     pkg = "com/mangaflow/mangaflow"
     for kind in ("main", "test"):
         src_root = ROOT / "tool/android" / kind
+        if not src_root.exists():
+            continue
         dst_root = ANDROID / f"app/src/{kind}/kotlin" / pkg
         for f in src_root.rglob("*.kt"):
             dst = dst_root / f.relative_to(src_root)

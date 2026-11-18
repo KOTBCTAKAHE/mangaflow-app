@@ -1,4 +1,4 @@
-package com.mangaflow.mangaflow.upscale
+package com.mangaflow.upscale
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
@@ -11,7 +11,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import io.flutter.FlutterInjector
-import io.flutter.plugin.common.BinaryMessenger
+import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
@@ -25,25 +25,26 @@ import kotlin.math.min
 /**
  * On-device manga page upscaling (waifu2x models on ONNX Runtime), channel `mangaflow/upscale`.
  *
- * One job at a time on a low-priority background thread; Dart decides what to queue.
+ * A Flutter plugin so it is registered in every engine — the app UI and the background
+ * download service. All engines share ONE worker thread and ONE loaded model (companion
+ * object), so the reader and the overnight upscaler never run two models at once.
  *   upscale {id, input, output, model, maxSourceWidth, maxOutPixels} → {status, ms, width, height, tiles, skippedTiles}
  *   cancel {id} · release
  */
-class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : MethodChannel.MethodCallHandler {
+class UpscalePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
-    private val channel = MethodChannel(messenger, "mangaflow/upscale").also { it.setMethodCallHandler(this) }
-    private val main = Handler(Looper.getMainLooper())
-    private val executor = Executors.newSingleThreadExecutor { r ->
-        Thread(Runnable {
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
-            r.run()
-        }, "mf-upscale")
+    private var channel: MethodChannel? = null
+    private lateinit var context: Context
+
+    override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        context = binding.applicationContext
+        channel = MethodChannel(binding.binaryMessenger, "mangaflow/upscale").also { it.setMethodCallHandler(this) }
     }
-    private val cancelled = Collections.synchronizedSet(HashSet<String>())
-    @Volatile private var runningId: String? = null
-    private var env: OrtEnvironment? = null
-    private var session: OrtSession? = null
-    private var sessionModel: String? = null
+
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        channel?.setMethodCallHandler(null)
+        channel = null
+    }
 
     private class Model(val asset: String, val spec: ModelSpec)
 
@@ -243,5 +244,19 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
     companion object {
         private const val TAG = "MangaFlowUpscale"
         private const val JPEG_QUALITY = 93
+
+        // Process-wide: shared by every engine (UI + background service).
+        private val main = Handler(Looper.getMainLooper())
+        private val executor = Executors.newSingleThreadExecutor { r ->
+            Thread(Runnable {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                r.run()
+            }, "mf-upscale")
+        }
+        private val cancelled = Collections.synchronizedSet(HashSet<String>())
+        @Volatile private var runningId: String? = null
+        private var env: OrtEnvironment? = null
+        private var session: OrtSession? = null
+        private var sessionModel: String? = null
     }
 }

@@ -1,4 +1,4 @@
-package com.mangaflow.mangaflow.upscale
+package com.mangaflow.upscale
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals

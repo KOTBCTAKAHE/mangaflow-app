@@ -7,11 +7,13 @@ import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/format.dart';
+import '../../data/models/settings.dart';
 import '../../data/services/download_manager.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
 import '../../data/services/background_guide.dart';
 import '../downloads_support.dart';
+import '../../data/services/downloads/download_runtime.dart';
 
 final _downloadsProvider = FutureProvider.autoDispose<(List<DownloadTask>, int, DownloadsState, bool)>((ref) async {
   ref.watch(downloadsChangesProvider);
@@ -44,12 +46,27 @@ class DownloadsScreen extends ConsumerWidget {
                 await m.resumeAll();
               case 'retry':
                 await m.retryAllFailed();
+              case 'upscale':
+                final s = ref.read(settingsProvider);
+                if (s.upscaleMode == UpscaleMode.off || !s.upscaleDownloads) {
+                  await ref.read(settingsProvider.notifier).update((x) => x.copyWith(
+                        upscaleDownloads: true,
+                        upscaleMode: x.upscaleMode == UpscaleMode.off ? UpscaleMode.auto : x.upscaleMode,
+                      ));
+                }
+                final ok = await DownloadService.ensureStarted();
+                if (context.mounted) {
+                  showSnack(context, ok
+                      ? 'Улучшаю скачанные главы в фоне — прогресс в уведомлении'
+                      : 'Не удалось запустить фоновую службу');
+                }
             }
           },
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'pause', child: Text('Приостановить все')),
             PopupMenuItem(value: 'resume', child: Text('Продолжить все')),
             PopupMenuItem(value: 'retry', child: Text('Повторить неудачные')),
+            PopupMenuItem(value: 'upscale', child: Text('Улучшить скачанные (ИИ)')),
           ],
         ),
       ]),

@@ -70,6 +70,13 @@ class UpscaleSettingsPanel extends ConsumerWidget {
             },
             style: MfType.caption.copyWith(color: context.textTertiary),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Улучшать скачанные главы в фоне'),
+            subtitle: const Text('После загрузки служба сама улучшит страницы — можно оставить на ночь на зарядке'),
+            value: s.upscaleDownloads,
+            onChanged: (v) => ctrl.update((x) => x.copyWith(upscaleDownloads: v)),
+          ),
           if (onEnhanceChapter != null) ...[
             const SizedBox(height: MfSpace.md),
             OutlinedButton.icon(

@@ -100,6 +100,7 @@ class AppSettings {
     this.autoScrollSpeed = 120,
     this.upscaleMode = UpscaleMode.auto,
     this.upscaleQuality = UpscaleQuality.fast,
+    this.upscaleDownloads = true,
   });
 
   final String apiBaseUrl;
@@ -142,6 +143,9 @@ class AppSettings {
   /// AI upscaling of pages on the phone.
   final UpscaleMode upscaleMode;
   final UpscaleQuality upscaleQuality;
+
+  /// Upscale downloaded chapters in the background download service (e.g. overnight).
+  final bool upscaleDownloads;
   final DateTime updatedAt;
 
   AppSettings copyWith({
@@ -171,6 +175,7 @@ class AppSettings {
     double? autoScrollSpeed,
     UpscaleMode? upscaleMode,
     UpscaleQuality? upscaleQuality,
+    bool? upscaleDownloads,
     DateTime? updatedAt,
   }) =>
       AppSettings(
@@ -200,6 +205,7 @@ class AppSettings {
         autoScrollSpeed: autoScrollSpeed ?? this.autoScrollSpeed,
         upscaleMode: upscaleMode ?? this.upscaleMode,
         upscaleQuality: upscaleQuality ?? this.upscaleQuality,
+        upscaleDownloads: upscaleDownloads ?? this.upscaleDownloads,
         updatedAt: updatedAt ?? DateTime.now().toUtc(),
       );
 
@@ -228,6 +234,7 @@ class AppSettings {
         'auto_scroll_speed': autoScrollSpeed,
         'upscale_mode_v2': upscaleMode.api,
         'upscale_quality': upscaleQuality.api,
+        'upscale_downloads': upscaleDownloads,
       };
 
   Map<String, dynamic> toJson() => {
@@ -268,6 +275,7 @@ class AppSettings {
       autoScrollSpeed: (j['auto_scroll_speed'] as num?)?.toDouble().clamp(30.0, 600.0) ?? 120,
       upscaleMode: j['upscale_mode_v2'] == null ? UpscaleMode.auto : UpscaleMode.parse(j['upscale_mode_v2'] as String?),
       upscaleQuality: UpscaleQuality.parse(j['upscale_quality'] as String?),
+      upscaleDownloads: j['upscale_downloads'] as bool? ?? true,
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
