@@ -80,7 +80,7 @@ jobs:
         run: flutter build apk --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'https://api-manga.aniroom.space' }}
 
       - name: Native unit tests (upscaler tiling engine)
-        run: cd android && ./gradlew :app:testReleaseUnitTest --no-daemon -q
+        run: cd android && ./gradlew :app:testDebugUnitTest --no-daemon -q
 
       - name: APK contents check (model + ONNX Runtime)
         run: |
