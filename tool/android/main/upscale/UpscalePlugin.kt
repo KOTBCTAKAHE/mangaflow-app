@@ -166,10 +166,6 @@ class UpscalePlugin(private val context: Context, messenger: BinaryMessenger) : 
         return OrtSession.SessionOptions().apply {
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             setInterOpNumThreads(1)
-            // Tiles have a fixed size: static shapes let ORT pre-plan memory and fuse more.
-            addFreeDimensionOverrideByName("batch_size", 1)
-            addFreeDimensionOverrideByName("input_height", model.spec.tile.toLong())
-            addFreeDimensionOverrideByName("input_width", model.spec.tile.toLong())
             // Don't busy-wait between tiles: saves battery and keeps the UI thread smooth.
             addConfigEntry("session.intra_op.allow_spinning", "0")
             if (xnnpack) {
