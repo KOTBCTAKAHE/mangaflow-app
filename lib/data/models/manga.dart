@@ -94,11 +94,18 @@ class SourceInfo {
     this.notes = '',
     this.caps = const SourceCaps(),
     this.genres = const [],
+    this.lang = 'ru',
   });
 
   final String id;
   final String name;
   final String baseUrl;
+
+  /// Translation language of the catalog (`ru`, `en`, …).
+  final String lang;
+
+  /// Short label for non-Russian catalogs ("EN"); null for Russian ones.
+  String? get langBadge => lang == 'ru' ? null : lang.toUpperCase();
   final bool isNsfw;
   final String notes;
   final SourceCaps caps;
@@ -109,6 +116,7 @@ class SourceInfo {
         name: j['name'] as String,
         baseUrl: j['base_url'] as String? ?? '',
         isNsfw: j['is_nsfw'] as bool? ?? false,
+        lang: j['lang'] as String? ?? 'ru',
         notes: j['notes'] as String? ?? '',
         caps: SourceCaps.fromJson((j['capabilities'] as Map?)?.cast<String, dynamic>() ?? const {}),
         genres: [for (final g in (j['genres'] as List? ?? const [])) Genre.fromJson((g as Map).cast())],

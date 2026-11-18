@@ -17,7 +17,7 @@ import '../../widgets/net_image.dart';
 import '../../widgets/states.dart';
 
 final sourcesProvider = FutureProvider<List<SourceInfo>>((ref) {
-  ref.watch(settingsProvider.select((s) => (s.showNsfw, s.disabledSources, s.apiBaseUrl)));
+  ref.watch(settingsProvider.select((s) => (s.showNsfw, s.disabledSources, s.apiBaseUrl, s.sourceLanguages)));
   return ref.watch(catalogRepositoryProvider).enabledSources();
 });
 
@@ -274,7 +274,7 @@ class _SourceSwitcher extends ConsumerWidget {
         itemBuilder: (context, i) {
           final s = sources[i];
           return ChoiceChip(
-            label: Text(s.name),
+            label: Text(s.langBadge == null ? s.name : '${s.name} · ${s.langBadge}'),
             selected: s.id == current.id,
             showCheckmark: false,
             onSelected: (_) => ref.read(settingsProvider.notifier).update((st) => st.copyWith(primarySource: s.id)),

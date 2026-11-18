@@ -84,6 +84,7 @@ class AppSettings {
     this.imageQuality = ImageQuality.original,
     this.showNsfw = false,
     this.disabledSources = const [],
+    this.sourceLanguages = const ['ru', 'en'],
     this.excludedGenres = const [],
     this.primarySource = 'mangalib',
     this.notifyUpdates = true,
@@ -113,6 +114,9 @@ class AppSettings {
   final ImageQuality imageQuality;
   final bool showNsfw;
   final List<String> disabledSources;
+
+  /// Catalog languages shown in the app (sources in other languages are hidden).
+  final List<String> sourceLanguages;
   final List<String> excludedGenres;
   final String primarySource;
   final bool notifyUpdates;
@@ -151,6 +155,7 @@ class AppSettings {
     ImageQuality? imageQuality,
     bool? showNsfw,
     List<String>? disabledSources,
+    List<String>? sourceLanguages,
     List<String>? excludedGenres,
     String? primarySource,
     bool? notifyUpdates,
@@ -179,6 +184,7 @@ class AppSettings {
         imageQuality: imageQuality ?? this.imageQuality,
         showNsfw: showNsfw ?? this.showNsfw,
         disabledSources: disabledSources ?? this.disabledSources,
+        sourceLanguages: sourceLanguages ?? this.sourceLanguages,
         excludedGenres: excludedGenres ?? this.excludedGenres,
         primarySource: primarySource ?? this.primarySource,
         notifyUpdates: notifyUpdates ?? this.notifyUpdates,
@@ -208,6 +214,7 @@ class AppSettings {
         'image_quality': imageQuality.api,
         'show_nsfw': showNsfw,
         'disabled_sources': disabledSources,
+        'source_languages': sourceLanguages,
         'excluded_genres': excludedGenres,
         'primary_source': primarySource,
         'notify_updates': notifyUpdates,
@@ -245,6 +252,7 @@ class AppSettings {
       imageQuality: ImageQuality.parse(j['image_quality'] as String?),
       showNsfw: j['show_nsfw'] as bool? ?? false,
       disabledSources: strs(j['disabled_sources']),
+      sourceLanguages: j['source_languages'] == null ? const ['ru', 'en'] : strs(j['source_languages']),
       excludedGenres: strs(j['excluded_genres']),
       primarySource: j['primary_source'] as String? ?? 'mangalib',
       notifyUpdates: j['notify_updates'] as bool? ?? true,

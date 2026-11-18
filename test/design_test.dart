@@ -78,4 +78,12 @@ void main() {
     expect(find.byType(SelectableText), findsOneWidget);
     expect(find.text('Копировать'), findsOneWidget);
   });
+
+  test('source languages: both by default; English catalogs carry an EN badge', () {
+    expect(AppSettings(apiBaseUrl: 'x', updatedAt: DateTime.utc(2026)).sourceLanguages, ['ru', 'en']);
+    expect(AppSettings.fromJson(const {}, fallbackUrl: 'x').sourceLanguages, ['ru', 'en']);
+    final en = SourceInfo.fromJson(const {'id': 'mangadex', 'name': 'MangaDex', 'lang': 'en'});
+    expect(en.langBadge, 'EN');
+    expect(SourceInfo.fromJson(const {'id': 'mangalib', 'name': 'MangaLib'}).langBadge, isNull);
+  });
 }

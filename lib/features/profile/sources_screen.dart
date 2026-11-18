@@ -33,12 +33,30 @@ class SourcesScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.sm, MfSpace.gutter, MfSpace.md),
             child: Text(
               'Источники работают через ваш сервер. Многие сайты ограничивают доступ не из России — '
-              'состояние каждого видно ниже. Перенесены из redcatpet/mangayomi-ru-sources (Apache-2.0).',
+              'состояние каждого видно ниже. Русские источники перенесены из redcatpet/mangayomi-ru-sources (Apache-2.0).',
               style: context.text.bodySmall,
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.gutter, MfSpace.sm),
+            child: Wrap(spacing: MfSpace.sm, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              Text('Языки каталогов:', style: context.text.bodyMedium),
+              for (final (code, label) in const [('ru', 'Русский'), ('en', 'English')])
+                FilterChip(
+                  label: Text(label),
+                  selected: s.sourceLanguages.contains(code),
+                  onSelected: (v) async {
+                    final next = {...s.sourceLanguages};
+                    v ? next.add(code) : next.remove(code);
+                    if (next.isEmpty) return; // keep at least one language
+                    await ref.read(settingsProvider.notifier).update((x) => x.copyWith(sourceLanguages: next.toList()));
+                    ref.invalidate(sourcesProvider);
+                  },
+                ),
+            ]),
+          ),
           for (final src in list)
-            if (!src.isNsfw || s.showNsfw)
+            if ((!src.isNsfw || s.showNsfw) && s.sourceLanguages.contains(src.lang))
               _SourceTile(
                 source: src,
                 enabled: !s.disabledSources.contains(src.id),
@@ -76,6 +94,7 @@ class _SourceTile extends ConsumerWidget {
       title: Row(children: [
         Flexible(child: Text(source.name)),
         if (source.isNsfw) ...[const SizedBox(width: MfSpace.sm), const Tag('18+')],
+        if (source.langBadge != null) ...[const SizedBox(width: MfSpace.sm), Tag(source.langBadge!)],
       ]),
       subtitle: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
       onTap: () => context.push(Routes.source(source.id)),

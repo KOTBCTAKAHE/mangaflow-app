@@ -65,7 +65,7 @@ class CatalogRepository {
     final s = settings();
     return [
       for (final src in await sources())
-        if ((s.showNsfw || !src.isNsfw) && !s.disabledSources.contains(src.id)) src,
+        if ((s.showNsfw || !src.isNsfw) && !s.disabledSources.contains(src.id) && s.sourceLanguages.contains(src.lang)) src,
     ];
   }
 

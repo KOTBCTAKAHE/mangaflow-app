@@ -318,7 +318,7 @@ class _SourceFilter extends ConsumerWidget {
           for (final s in sources) ...[
             const SizedBox(width: MfSpace.sm),
             FilterChip(
-              label: Text(s.name),
+              label: Text(s.langBadge == null ? s.name : '${s.name} · ${s.langBadge}'),
               selected: selected?.contains(s.id) ?? false,
               onSelected: (v) {
                 final next = {...?selected};
