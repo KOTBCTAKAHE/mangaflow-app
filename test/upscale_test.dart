@@ -58,10 +58,14 @@ void main() {
   List<PageRef> pages(int n, {String chapter = 'c1'}) =>
       [for (var i = 0; i < n; i++) PageRef(index: i, url: 'https://x/$i?token=day1', key: 'src/$chapter/$i')];
 
-  Future<void> idle() async {
-    for (var i = 0; i < 20; i++) {
-      await Future<void>.delayed(Duration.zero);
+  /// Lets queued work (real file IO) finish; returns early once the upscaler is idle.
+  Future<void> idle({Duration max = const Duration(milliseconds: 600)}) async {
+    final end = DateTime.now().add(max);
+    while (DateTime.now().isBefore(end)) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      if (up.isIdle) break;
     }
+    await Future<void>.delayed(const Duration(milliseconds: 5));
   }
 
   test('current page first, then the next ones, then the previous one', () async {
@@ -93,7 +97,9 @@ void main() {
       ..mode = UpscaleMode.auto;
     final resigned = [for (final p in pages(2)) PageRef(index: p.index, url: 'https://x/${p.index}?token=day2', key: p.key)];
     again.focus(resigned, 0, ahead: 1);
-    await idle();
+    for (var i = 0; i < 100 && !again.isIdle; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
     expect(backend.calls.length, 2, reason: 'no new inference');
     expect(again.watch(resigned[1]).value.isDone, isTrue);
     again.dispose();

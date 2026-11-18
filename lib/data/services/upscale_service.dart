@@ -135,6 +135,9 @@ class PageUpscaler {
   int targetWidth = 1080;
 
   bool get enabled => mode != UpscaleMode.off;
+
+  /// Nothing queued or running.
+  bool get isIdle => !_pumping && _queue.isEmpty;
   int get maxSourceWidth => mode == UpscaleMode.always ? 1800 : (targetWidth * 0.95).round();
 
   final _states = <String, _StateNotifier>{};
