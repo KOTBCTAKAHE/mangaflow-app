@@ -372,6 +372,7 @@ class _HeroCard extends StatelessWidget {
         scale: 0.98,
         child: GestureDetector(
           onTap: onTap,
+          onLongPress: () => showFullTitle(context, card.title, subtitle: meta, onOpen: onTap),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(MfRadius.xl),
             child: Stack(fit: StackFit.expand, children: [

@@ -11,7 +11,9 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
 import '../../data/models/settings.dart';
+import '../../data/services/volume_keys.dart';
 import '../../widgets/effects.dart';
+import '../../widgets/manga_widgets.dart' show showFullTitle;
 import '../../widgets/states.dart';
 import 'reader_controller.dart';
 import 'reader_settings_sheet.dart';
@@ -47,6 +49,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     )..addListener(_onChange);
     unawaited(c.init());
     if (ref.read(settingsProvider).keepScreenOn) unawaited(WakelockPlus.enable().catchError((Object _) {}));
+    _applyVolumeKeys(ref.read(settingsProvider));
+    ref.listenManual(settingsProvider.select((s) => (s.volumeKeys, s.volumeKeysInverted)), (_, __) {
+      _applyVolumeKeys(ref.read(settingsProvider));
+    });
+  }
+
+  void _applyVolumeKeys(AppSettings s) {
+    if (!s.volumeKeys) {
+      unawaited(VolumeKeys.disable());
+      return;
+    }
+    unawaited(VolumeKeys.enable((up) {
+      final next = s.volumeKeysInverted ? up : !up; // default: volume-down = next page
+      c.step(next ? 1 : -1);
+    }));
   }
 
   bool _lastUi = true;
@@ -67,6 +84,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void dispose() {
     c.removeListener(_onChange);
+    unawaited(VolumeKeys.disable());
     unawaited(c.close().whenComplete(c.dispose));
     unawaited(WakelockPlus.disable().catchError((Object _) {}));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -206,12 +224,18 @@ class _Overlay extends ConsumerWidget {
           child: Row(children: [
             const BackButton(color: fg),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: c.manga == null
+                    ? null
+                    : () => showFullTitle(context, c.manga!.title, subtitle: seg?.chapter.title, altTitles: c.manga!.altTitles),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(c.manga?.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: MfType.titleSmall.copyWith(color: fg)),
                 if (seg != null)
                   Text(seg.chapter.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: MfType.bodySmall.copyWith(color: Colors.white70)),
               ]),
+              ),
             ),
             IconButton(
               tooltip: 'Режим чтения',

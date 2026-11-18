@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/theme/app_theme.dart';
 import '../core/theme/tokens.dart';
@@ -104,7 +105,7 @@ class MangaTile extends StatelessWidget {
         label: card.title,
         child: InkWell(
           onTap: onTap,
-          onLongPress: onLongPress,
+          onLongPress: onLongPress ?? () => showFullTitle(context, card.title, subtitle: subtitle, onOpen: onTap),
           borderRadius: BorderRadius.circular(MfRadius.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,4 +266,66 @@ class GridSkeleton extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Bottom sheet with the complete (untruncated) title, alt names and copy.
+Future<void> showFullTitle(
+  BuildContext context,
+  String title, {
+  String? subtitle,
+  List<String> altTitles = const [],
+  VoidCallback? onOpen,
+}) {
+  HapticFeedback.selectionClick();
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (sheet) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.7),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.gutter, MfSpace.lg),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SelectableText(title, style: MfType.title.copyWith(color: sheet.colors.onSurface, height: 1.3)),
+            if (subtitle != null && subtitle.isNotEmpty) ...[
+              const SizedBox(height: MfSpace.xs),
+              Text(subtitle, style: sheet.text.bodySmall),
+            ],
+            if (altTitles.isNotEmpty) ...[
+              const SizedBox(height: MfSpace.lg),
+              Text('Другие названия', style: MfType.overline.copyWith(color: sheet.textTertiary)),
+              const SizedBox(height: MfSpace.xs),
+              for (final a in altTitles)
+                Padding(padding: const EdgeInsets.only(bottom: MfSpace.xs), child: SelectableText(a, style: sheet.text.bodyMedium)),
+            ],
+            const SizedBox(height: MfSpace.lg),
+            Row(children: [
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: title));
+                  Navigator.pop(sheet);
+                  showSnack(context, 'Название скопировано');
+                },
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: const Text('Копировать'),
+              ),
+              if (onOpen != null) ...[
+                const SizedBox(width: MfSpace.sm),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(sheet);
+                      onOpen();
+                    },
+                    child: const Text('Открыть'),
+                  ),
+                ),
+              ],
+            ]),
+          ]),
+        ),
+      ),
+    ),
+  );
 }

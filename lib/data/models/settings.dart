@@ -67,6 +67,8 @@ class AppSettings {
     this.hideReadChapters = false,
     this.accent = AccentPalette.ember,
     this.libraryView = LibraryView.grid,
+    this.volumeKeys = false,
+    this.volumeKeysInverted = false,
   });
 
   final String apiBaseUrl;
@@ -90,6 +92,12 @@ class AppSettings {
   final bool hideReadChapters;
   final AccentPalette accent;
   final LibraryView libraryView;
+
+  /// Turn pages with the phone's volume buttons (Android).
+  final bool volumeKeys;
+
+  /// false: volume-down = next page; true: volume-up = next page.
+  final bool volumeKeysInverted;
   final DateTime updatedAt;
 
   AppSettings copyWith({
@@ -112,6 +120,8 @@ class AppSettings {
     bool? hideReadChapters,
     AccentPalette? accent,
     LibraryView? libraryView,
+    bool? volumeKeys,
+    bool? volumeKeysInverted,
     DateTime? updatedAt,
   }) =>
       AppSettings(
@@ -134,6 +144,8 @@ class AppSettings {
         hideReadChapters: hideReadChapters ?? this.hideReadChapters,
         accent: accent ?? this.accent,
         libraryView: libraryView ?? this.libraryView,
+        volumeKeys: volumeKeys ?? this.volumeKeys,
+        volumeKeysInverted: volumeKeysInverted ?? this.volumeKeysInverted,
         updatedAt: updatedAt ?? DateTime.now().toUtc(),
       );
 
@@ -156,6 +168,8 @@ class AppSettings {
         'hide_read_chapters': hideReadChapters,
         'accent': accent.api,
         'library_view': libraryView.api,
+        'volume_keys': volumeKeys,
+        'volume_keys_inverted': volumeKeysInverted,
       };
 
   Map<String, dynamic> toJson() => {
@@ -188,6 +202,8 @@ class AppSettings {
       hideReadChapters: j['hide_read_chapters'] as bool? ?? false,
       accent: AccentPalette.parse(j['accent'] as String?),
       libraryView: LibraryView.parse(j['library_view'] as String?),
+      volumeKeys: j['volume_keys'] as bool? ?? false,
+      volumeKeysInverted: j['volume_keys_inverted'] as bool? ?? false,
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }

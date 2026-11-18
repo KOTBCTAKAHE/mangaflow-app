@@ -143,6 +143,51 @@ _STYLES_V31 = f"""<?xml version="1.0" encoding="utf-8"?>
 """
 
 
+_MAIN_ACTIVITY = """package com.mangaflow.mangaflow
+
+import android.view.KeyEvent
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+/** Volume buttons turn pages in the reader while enabled from Dart (mangaflow/volume_keys). */
+class MainActivity : FlutterActivity() {
+    private var volumeKeys = false
+    private var channel: MethodChannel? = null
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/volume_keys").also {
+            it.setMethodCallHandler { call, result ->
+                if (call.method == "setEnabled") {
+                    volumeKeys = call.arguments as? Boolean ?: false
+                    result.success(null)
+                } else {
+                    result.notImplemented()
+                }
+            }
+        }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if (volumeKeys && (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                channel?.invokeMethod("key", if (code == KeyEvent.KEYCODE_VOLUME_UP) "up" else "down")
+            }
+            return true // swallow: no system volume change / slider while reading
+        }
+        return super.dispatchKeyEvent(event)
+    }
+}
+"""
+
+
+def write_main_activity() -> None:
+    for f in ANDROID.glob("app/src/main/kotlin/**/MainActivity.kt"):
+        f.write_text(_MAIN_ACTIVITY, encoding="utf-8")
+
+
 def write_splash() -> None:
     res = ANDROID / "app/src/main/res"
     if not res.exists():
@@ -166,4 +211,5 @@ if __name__ == "__main__":
     patch_gradle()
     copy_icons()
     write_splash()
+    write_main_activity()
     print("android project patched")

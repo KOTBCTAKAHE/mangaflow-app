@@ -271,7 +271,14 @@ class _Header extends StatelessWidget {
               const SizedBox(width: MfSpace.lg),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(manga.title, style: MfType.headline.copyWith(color: context.colors.onSurface, fontSize: 20, height: 1.25), maxLines: 4, overflow: TextOverflow.ellipsis),
+                  GestureDetector(
+                    onTap: () => showFullTitle(context, manga.title,
+                        subtitle: manga.authors.join(', '), altTitles: manga.altTitles),
+                    child: Text(manga.title,
+                        style: MfType.headline.copyWith(color: context.colors.onSurface, fontSize: 20, height: 1.25),
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis),
+                  ),
                   if (manga.authors.isNotEmpty) ...[
                     const SizedBox(height: MfSpace.xs),
                     Text(manga.authors.join(', '), style: context.text.bodySmall, maxLines: 2),

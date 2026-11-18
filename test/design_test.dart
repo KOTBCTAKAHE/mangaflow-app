@@ -4,6 +4,8 @@ import 'package:mangaflow/core/theme/app_theme.dart';
 import 'package:mangaflow/core/theme/tokens.dart';
 import 'package:mangaflow/data/models/settings.dart';
 import 'package:mangaflow/widgets/cover_color.dart';
+import 'package:mangaflow/data/models/manga.dart';
+import 'package:mangaflow/widgets/manga_widgets.dart';
 import 'package:mangaflow/widgets/states.dart';
 
 List<int> solid(int r, int g, int b, [int n = 64]) => [for (var i = 0; i < n; i++) ...[r, g, b, 255]];
@@ -36,6 +38,9 @@ void main() {
     expect(s.toSyncJson()['accent'], 'mint');
     expect(AccentPalette.parse('nope'), AccentPalette.ember);
     expect(LibraryView.parse(null), LibraryView.grid);
+    final v = AppSettings.fromJson(s.copyWith(volumeKeys: true, volumeKeysInverted: true).toJson(), fallbackUrl: 'https://x');
+    expect((v.volumeKeys, v.volumeKeysInverted), (true, true));
+    expect(AppSettings.fromJson(const {}, fallbackUrl: 'https://x').volumeKeys, isFalse);
   });
 
   testWidgets('switching the accent changes the theme primary', (tester) async {
@@ -54,5 +59,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(EmptyIllustration), findsOneWidget);
     expect(find.text('Пусто'), findsOneWidget);
+  });
+
+  testWidgets('long-press on a tile shows the full, untruncated title', (tester) async {
+    const long = 'Очень длинное название тайтла, которое никак не помещается в две строки под обложкой в сетке';
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.dark(),
+      home: Scaffold(
+        body: SizedBox(
+          width: 120,
+          child: MangaTile(card: const MangaCard(sourceId: 's', id: '1', title: long), onTap: () {}),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byType(MangaTile));
+    await tester.pumpAndSettle();
+    expect(find.byType(SelectableText), findsOneWidget);
+    expect(find.text('Копировать'), findsOneWidget);
   });
 }

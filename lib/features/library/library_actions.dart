@@ -19,7 +19,7 @@ Future<void> showEntryActions(BuildContext context, WidgetRef ref, LibraryEntry 
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.gutter, MfSpace.md),
-            child: Text(e.title, style: context.text.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+            child: SelectableText(e.title, style: context.text.titleMedium),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),

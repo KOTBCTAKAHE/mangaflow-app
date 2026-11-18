@@ -262,6 +262,14 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
     await library.setReaderSettings(sourceId, mangaId, {'reading_mode': m.api});
   }
 
+  final _steps = StreamController<int>.broadcast();
+
+  /// Page-turn requests from hardware keys: +1 next, -1 previous (reading order).
+  Stream<int> get stepRequests => _steps.stream;
+  void step(int delta) {
+    if (!_disposed) _steps.add(delta);
+  }
+
   void toggleUi([bool? visible]) {
     uiVisible = visible ?? !uiVisible;
     _notify();
@@ -364,6 +372,7 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     _disposed = true;
     _saveTimer?.cancel();
+    unawaited(_steps.close());
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

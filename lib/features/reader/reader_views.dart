@@ -47,12 +47,14 @@ class _VerticalReaderState extends State<VerticalReader> {
   List<_Item> _items = const [];
   Timer? _throttle;
   TapDownDetails? _doubleTap;
+  StreamSubscription<int>? _steps;
 
   ReaderController get c => widget.c;
 
   @override
   void initState() {
     super.initState();
+    _steps = c.stepRequests.listen((d) => _scrollBy(0.8 * d));
     _transform.addListener(() {
       final z = _transform.value.getMaxScaleOnAxis() > 1.01;
       if (z != _zoomed) setState(() => _zoomed = z);
@@ -61,6 +63,7 @@ class _VerticalReaderState extends State<VerticalReader> {
 
   @override
   void dispose() {
+    _steps?.cancel();
     _throttle?.cancel();
     _scroll.dispose();
     _transform.dispose();
@@ -116,6 +119,7 @@ class _VerticalReaderState extends State<VerticalReader> {
   }
 
   void _scrollBy(double fraction) {
+    if (!_scroll.hasClients) return;
     final h = (context.findRenderObject() as RenderBox?)?.size.height ?? 600;
     final target = (_scroll.offset + h * fraction).clamp(_scroll.position.minScrollExtent, _scroll.position.maxScrollExtent);
     _scroll.animateTo(target, duration: MfMotion.slow, curve: MfMotion.standard);
@@ -266,8 +270,15 @@ class _PagedReaderState extends State<PagedReader> {
   int _anchorVersion = -1;
   bool _zoomed = false;
   bool _autoAdvancing = false;
+  StreamSubscription<int>? _steps;
 
   ReaderController get c => widget.c;
+
+  @override
+  void initState() {
+    super.initState();
+    _steps = c.stepRequests.listen(_go);
+  }
   bool get _double => c.mode == ReadingMode.doublePage;
 
   /// Spreads: first page alone (cover), then pairs.
@@ -290,6 +301,7 @@ class _PagedReaderState extends State<PagedReader> {
 
   @override
   void dispose() {
+    _steps?.cancel();
     _pc?.dispose();
     super.dispose();
   }

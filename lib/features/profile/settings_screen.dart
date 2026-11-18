@@ -125,6 +125,20 @@ class SettingsScreen extends ConsumerWidget {
           onChanged: (v) => ctrl.update((x) => x.copyWith(tapZones: v)),
         ),
         SwitchListTile(
+          secondary: const Icon(Icons.volume_down_outlined),
+          title: const Text('Листать кнопками громкости'),
+          subtitle: Text(s.volumeKeysInverted ? 'Громкость + — следующая страница' : 'Громкость − — следующая страница'),
+          value: s.volumeKeys,
+          onChanged: (v) => ctrl.update((x) => x.copyWith(volumeKeys: v)),
+        ),
+        if (s.volumeKeys)
+          SwitchListTile(
+            secondary: const Icon(Icons.swap_vert_rounded),
+            title: const Text('Поменять кнопки громкости местами'),
+            value: s.volumeKeysInverted,
+            onChanged: (v) => ctrl.update((x) => x.copyWith(volumeKeysInverted: v)),
+          ),
+        SwitchListTile(
           secondary: const Icon(Icons.light_mode_outlined),
           title: const Text('Не выключать экран при чтении'),
           value: s.keepScreenOn,
