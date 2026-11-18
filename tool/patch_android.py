@@ -71,6 +71,29 @@ def patch_manifest() -> None:
     MANIFEST.write_text(text)
 
 
+SIGN_KTS = """    // Stable release key (CI decodes the ANDROID_KEYSTORE_B64 secret into MF_KEYSTORE).
+    // Same key for every build → updates install over the previous version.
+    signingConfigs {
+        create("mangaflow") {
+            val ks = System.getenv("MF_KEYSTORE")
+            if (ks != null && file(ks).exists()) {
+                storeFile = file(ks)
+                storePassword = System.getenv("MF_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("MF_KEY_ALIAS") ?: "mangaflow"
+                keyPassword = System.getenv("MF_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            val ks = System.getenv("MF_KEYSTORE")
+            signingConfig = if (ks != null && file(ks).exists()) signingConfigs.getByName("mangaflow")
+                            else signingConfigs.getByName("debug")
+        }
+    }"""
+
+
 def patch_gradle() -> None:
     kts = ANDROID / "app/build.gradle.kts"
     groovy = ANDROID / "app/build.gradle"
@@ -80,6 +103,8 @@ def patch_gradle() -> None:
             text = re.sub(r"compileOptions\s*\{", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", text, count=1)
         if "desugar_jdk_libs" not in text:
             text += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+        if "MF_KEYSTORE" not in text:
+            text = re.sub(r"    buildTypes \{.*?\n    \}\n", lambda _: SIGN_KTS + "\n", text, count=1, flags=re.S)
         kts.write_text(text)
     elif groovy.exists():
         text = groovy.read_text()

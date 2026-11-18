@@ -30,11 +30,25 @@ android {
         versionName = flutter.versionName
     }
 
+    // Stable release key (CI decodes the ANDROID_KEYSTORE_B64 secret into MF_KEYSTORE).
+    // Same key for every build → updates install over the previous version.
+    signingConfigs {
+        create("mangaflow") {
+            val ks = System.getenv("MF_KEYSTORE")
+            if (ks != null && file(ks).exists()) {
+                storeFile = file(ks)
+                storePassword = System.getenv("MF_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("MF_KEY_ALIAS") ?: "mangaflow"
+                keyPassword = System.getenv("MF_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val ks = System.getenv("MF_KEYSTORE")
+            signingConfig = if (ks != null && file(ks).exists()) signingConfigs.getByName("mangaflow")
+                            else signingConfigs.getByName("debug")
         }
     }
 }

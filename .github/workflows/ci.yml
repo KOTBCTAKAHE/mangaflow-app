@@ -55,10 +55,28 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq libsqlite3-dev >/dev/null
           flutter test --reporter expanded
 
+      - name: Release signing key
+        id: key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/mangaflow-release.jks"
+            echo "MF_KEYSTORE=$RUNNER_TEMP/mangaflow-release.jks" >> "$GITHUB_ENV"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::ANDROID_KEYSTORE_B64 secret is missing — APK is debug-signed and will NOT be published as a release"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build APK
+        env:
+          MF_KEYSTORE_PASSWORD: 'A9LlW-x-Xiz7XjIJaMa5GErxgY3NHa6R'
         run: flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'https://api-manga.aniroom.space' }}
 
       - name: Build universal APK
+        env:
+          MF_KEYSTORE_PASSWORD: 'A9LlW-x-Xiz7XjIJaMa5GErxgY3NHa6R'
         run: flutter build apk --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL || 'https://api-manga.aniroom.space' }}
 
       - name: Release version
@@ -98,7 +116,7 @@ jobs:
 
       # Bump `version:` in pubspec.yaml and push to main → a new release is published automatically.
       - name: Publish GitHub Release
-        if: github.ref == 'refs/heads/main' && steps.ver.outputs.exists == 'false'
+        if: github.ref == 'refs/heads/main' && steps.ver.outputs.exists == 'false' && steps.key.outputs.ok == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
