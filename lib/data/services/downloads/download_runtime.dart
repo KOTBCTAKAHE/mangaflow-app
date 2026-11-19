@@ -134,15 +134,6 @@ abstract final class DownloadService {
   static Future<bool> isRunning() async => supported && await FlutterForegroundTask.isRunningService;
 
   /// Starts the service if needed; false when Android refused (caller falls back to in-process).
-  static Future<bool> isRunning() async {
-    if (!supported) return false;
-    try {
-      return await FlutterForegroundTask.isRunningService;
-    } catch (_) {
-      return false;
-    }
-  }
-
   static Future<bool> ensureStarted() async {
     if (!supported) return false;
     try {

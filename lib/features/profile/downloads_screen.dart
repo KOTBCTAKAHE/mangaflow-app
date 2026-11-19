@@ -244,6 +244,7 @@ Future<void> enhanceDownloaded(BuildContext context, WidgetRef ref) async {
     force = true;
   }
   await prefs.setBool(upscaleForcePref, force);
+  if (!context.mounted) return;
   await ensureBackgroundAllowed(context, ref);
   if (await DownloadService.isRunning()) {
     FlutterForegroundTask.sendDataToTask('upscale');
