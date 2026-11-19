@@ -128,6 +128,11 @@ jobs:
           if-no-files-found: ignore
 
       # Bump `version:` in pubspec.yaml and push to main → a new release is published automatically.
+      - name: Release notes from CHANGELOG.md
+        if: github.ref == 'refs/heads/main' && steps.ver.outputs.exists == 'false' && steps.key.outputs.ok == 'true'
+        run: python3 tool/release_notes.py "${{ steps.ver.outputs.tag }}" > "$RUNNER_TEMP/notes.md"
+
+      # Bump `version:` in pubspec.yaml (+ a CHANGELOG.md section) and push to main → a new release is published.
       - name: Publish GitHub Release
         if: github.ref == 'refs/heads/main' && steps.ver.outputs.exists == 'false' && steps.key.outputs.ok == 'true'
         uses: softprops/action-gh-release@v2
@@ -135,13 +140,6 @@ jobs:
           tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
           name: MangaFlow ${{ steps.ver.outputs.tag }}
-          generate_release_notes: true
-          body: |
-            **Какой APK скачать:**
-            - `MangaFlow-${{ steps.ver.outputs.tag }}-arm64.apk` — большинство современных телефонов
-            - `MangaFlow-${{ steps.ver.outputs.tag }}-armv7.apk` — старые 32-битные устройства
-            - `MangaFlow-${{ steps.ver.outputs.tag }}-universal.apk` — если не уверены (больше размер)
-
-            Сервер по умолчанию: https://api-manga.aniroom.space (меняется в Настройках).
+          body_path: ${{ runner.temp }}/notes.md
           files: |
             release/*.apk

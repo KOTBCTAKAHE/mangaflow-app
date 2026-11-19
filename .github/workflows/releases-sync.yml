@@ -1,0 +1,48 @@
+name: Sync release notes & tags
+
+# Keeps GitHub Releases in step with the repo:
+# - every release body = its CHANGELOG.md section (tool/release_notes.py);
+# - a tag left on a commit that is no longer in main (after history rewrite)
+#   is moved to the matching main commit (same author date + subject).
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md, tool/release_notes.py, .github/workflows/releases-sync.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Move tags orphaned by a history rewrite
+        run: |
+          git fetch --tags --force
+          moved=0
+          for t in $(git tag); do
+            old=$(git rev-list -n1 "$t")
+            if git merge-base --is-ancestor "$old" origin/main; then continue; fi
+            key="$(git log -1 --format='%ad|%s' --date=raw "$old")"
+            new=$(git log origin/main --format='%H|%ad|%s' --date=raw | grep -F "|$key" | head -1 | cut -d'|' -f1)
+            if [ -z "$new" ]; then echo "::warning::no match for $t"; continue; fi
+            git tag -f "$t" "$new"
+            git push -f origin "refs/tags/$t"
+            echo "$t: ${old:0:7} -> ${new:0:7}"
+            moved=$((moved+1))
+          done
+          echo "moved $moved tag(s)"
+
+      - name: Release bodies from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for t in $(gh release list --limit 200 --json tagName -q '.[].tagName'); do
+            python3 tool/release_notes.py "$t" > /tmp/notes.md
+            gh release edit "$t" --notes-file /tmp/notes.md >/dev/null && echo "updated $t"
+          done
