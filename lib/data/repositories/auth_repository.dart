@@ -41,7 +41,15 @@ class AuthController extends StateNotifier<AuthState> implements TokenProvider {
 
   Future<void> restore() async {
     _tokens = await _store.readTokens();
-    final user = await _store.readUser();
+    UserProfile? user;
+    try {
+      user = await _store.readUser();
+    } catch (_) {}
+    if (_tokens == null && user != null) {
+      // signed in, but the keystore didn't answer (happens right after boot on some phones)
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      _tokens = await _store.readTokens();
+    }
     if (_tokens != null && user != null) state = SignedIn(user);
   }
 
@@ -91,6 +99,8 @@ class AuthController extends StateNotifier<AuthState> implements TokenProvider {
   }
 
   // ---- TokenProvider
+  Future<String?>? _inflight;
+
   @override
   Future<String?> accessToken() async {
     final t = _tokens;
@@ -99,10 +109,22 @@ class AuthController extends StateNotifier<AuthState> implements TokenProvider {
     return t.access;
   }
 
+  /// Single-flight: every caller (parallel requests, the interceptor, the proactive
+  /// "expiring soon" path) shares one network refresh. Refresh tokens are one-time:
+  /// sending the same one twice used to look like theft to the server → forced logout.
   @override
-  Future<String?> refresh() async {
-    final t = _tokens;
+  Future<String?> refresh() => _inflight ??= _doRefresh().whenComplete(() => _inflight = null);
+
+  Future<String?> _doRefresh() async {
+    var t = _tokens;
     if (t == null) return null;
+    // Another process (background update check, download service) may have rotated the
+    // tokens already: adopt the stored pair instead of replaying our stale refresh token.
+    final stored = await _store.readTokens();
+    if (stored != null && stored.refresh != t.refresh) {
+      _tokens = t = stored;
+      if (!stored.isExpiringSoon) return stored.access;
+    }
     try {
       final (user, tokens) = await _api.refresh(t.refresh);
       _tokens = tokens;
@@ -111,9 +133,19 @@ class AuthController extends StateNotifier<AuthState> implements TokenProvider {
       if (state is! SignedIn) state = SignedIn(user);
       return tokens.access;
     } on ApiException catch (e) {
-      if (e.isOffline) return t.access; // keep session while offline
-      await _signedOut();
-      return null;
+      // Only a definite "this session is invalid" answer ends the session. Server restarts
+      // (502), rate limits, timeouts, no network — keep the user signed in and retry later.
+      if (e.status == 401 || e.status == 403) {
+        // last chance: a concurrent process might have rotated it a moment ago
+        final latest = await _store.readTokens();
+        if (latest != null && latest.refresh != t.refresh) {
+          _tokens = latest;
+          return latest.access;
+        }
+        await _signedOut();
+        return null;
+      }
+      return t.access;
     }
   }
 

@@ -77,6 +77,10 @@ def patch_manifest() -> None:
             '        </receiver>\n'
         )
         text = text.replace("    </application>", widget + "    </application>", 1)
+    if "allowBackup" not in text:
+        # Android auto-backup restores the encrypted token file but not its Keystore key →
+        # undecryptable credentials after reinstall/phone transfer. The server sync is the backup.
+        text = text.replace("<application", '<application\n        android:allowBackup="false"\n        android:fullBackupContent="false"', 1)
     if "usesCleartextTraffic" not in text:
         text = text.replace("<application", '<application\n        android:usesCleartextTraffic="true"', 1)
     MANIFEST.write_text(text)

@@ -23,11 +23,16 @@ class SecureStore {
   }
 
   Future<AuthTokens?> readTokens() async {
-    final refresh = await _s.read(key: _kRefresh);
-    final access = await _s.read(key: _kAccess);
-    if (refresh == null || access == null) return null;
-    final exp = DateTime.tryParse(await _s.read(key: _kExpires) ?? '') ?? DateTime.now();
-    return AuthTokens(access: access, refresh: refresh, expiresAt: exp);
+    try {
+      final refresh = await _s.read(key: _kRefresh);
+      final access = await _s.read(key: _kAccess);
+      if (refresh == null || access == null) return null;
+      final exp = DateTime.tryParse(await _s.read(key: _kExpires) ?? '') ?? DateTime.now();
+      return AuthTokens(access: access, refresh: refresh, expiresAt: exp);
+    } catch (_) {
+      // Keystore hiccup (some OEMs, right after boot): treat as "no change", never crash.
+      return null;
+    }
   }
 
   Future<void> saveUser(UserProfile u) => _s.write(key: _kUser, value: jsonEncode(u.toJson()));
