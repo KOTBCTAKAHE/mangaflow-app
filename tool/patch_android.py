@@ -108,6 +108,17 @@ def patch_manifest() -> None:
             '        </receiver>\n'
         )
         text = text.replace("    </application>", widget + "    </application>", 1)
+    if "LibraryWidgetProvider" not in text:
+        widget = (
+            '        <!-- Home-screen widget «Библиотека» -->\n'
+            '        <receiver android:name=".LibraryWidgetProvider" android:exported="false" android:label="Библиотека MangaFlow">\n'
+            '            <intent-filter>\n'
+            '                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n'
+            '            </intent-filter>\n'
+            '            <meta-data android:name="android.appwidget.provider" android:resource="@xml/library_widget_info" />\n'
+            '        </receiver>\n'
+        )
+        text = text.replace("    </application>", widget + "    </application>", 1)
     if "allowBackup" not in text:
         # Android auto-backup restores the encrypted token file but not its Keystore key →
         # undecryptable credentials after reinstall/phone transfer. The server sync is the backup.
@@ -149,6 +160,11 @@ def patch_gradle() -> None:
             text = re.sub(r"compileOptions\s*\{", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", text, count=1)
         if "desugar_jdk_libs" not in text:
             text += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+        if "androidx.appcompat:appcompat" not in text:
+            # AppCompat themes: the fingerprint prompt (local_auth) needs them on Android 8 and below
+            text = text.replace('    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n',
+                                '    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n'
+                                '    implementation("androidx.appcompat:appcompat:1.7.0")\n', 1)
         # ONNX Runtime now comes with the local plugin packages/mangaflow_upscale
         text = text.replace('    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.24.3")\n', "")
         text = text.replace('    testImplementation("junit:junit:4.13.2")\n', "")
@@ -188,12 +204,12 @@ _LAUNCH = f"""<?xml version="1.0" encoding="utf-8"?>
 
 _STYLES = f"""<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <style name="LaunchTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:statusBarColor">{GRAPHITE}</item>
         <item name="android:navigationBarColor">{GRAPHITE}</item>
     </style>
-    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <style name="NormalTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/mf_graphite</item>
     </style>
     <color name="mf_graphite">{GRAPHITE}</color>
@@ -202,14 +218,14 @@ _STYLES = f"""<?xml version="1.0" encoding="utf-8"?>
 
 _STYLES_V31 = f"""<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <style name="LaunchTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowSplashScreenBackground">{GRAPHITE}</item>
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="android:statusBarColor">{GRAPHITE}</item>
         <item name="android:navigationBarColor">{GRAPHITE}</item>
     </style>
-    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <style name="NormalTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/mf_graphite</item>
     </style>
     <color name="mf_graphite">{GRAPHITE}</color>

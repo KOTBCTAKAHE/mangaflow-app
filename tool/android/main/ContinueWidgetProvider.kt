@@ -25,6 +25,15 @@ class ContinueWidgetProvider : AppWidgetProvider() {
         ids.forEach { manager.updateAppWidget(it, views) }
     }
 
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == LibraryWidgetProvider.ACTION_REFRESH) {
+            refresh(context)
+            LibraryWidgetProvider.refresh(context)
+            return
+        }
+        super.onReceive(context, intent)
+    }
+
     companion object {
         const val EXTRA_ROUTE = "mf_route"
 
@@ -63,14 +72,14 @@ class ContinueWidgetProvider : AppWidgetProvider() {
         }
 
         /** Small rounded bitmap (RemoteViews have a size budget and can't clip). */
-        private fun cover(path: String): Bitmap? = try {
+        fun cover(path: String, width: Int = 160): Bitmap? = try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(path, bounds)
             var sample = 1
-            while (bounds.outWidth / (sample * 2) >= 160) sample *= 2
+            while (bounds.outWidth / (sample * 2) >= width) sample *= 2
             val src = BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: null
             src?.let {
-                val w = 160
+                val w = width
                 val h = (w * 1.42f).toInt()
                 val scaled = Bitmap.createScaledBitmap(it, w, h, true)
                 val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
