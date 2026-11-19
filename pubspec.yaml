@@ -1,7 +1,7 @@
 name: mangaflow
 description: "MangaFlow — читалка манги, манхвы и маньхуа с русскоязычными источниками."
 publish_to: "none"
-version: 2.3.0+23
+version: 2.3.1+24
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -37,6 +37,13 @@ dependencies:
   device_info_plus: any
   android_intent_plus: any
   url_launcher: any
+
+# path_provider_android 2.3.x switched to JNI and fails in release builds with
+# "ClassNotFoundException: Landroid/content/Context;" — every getTemporaryDirectory()
+# (image cache → no covers at all, chapter packs, downloads) broke. Stay on the
+# platform-channel implementation until that is fixed upstream.
+dependency_overrides:
+  path_provider_android: 2.2.23
 
 dev_dependencies:
   flutter_test:
