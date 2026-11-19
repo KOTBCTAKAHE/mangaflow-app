@@ -47,7 +47,8 @@ jobs:
       - name: Dependencies
         run: |
           flutter pub get
-          grep -A3 -E "^  (path_provider_android|jni):" pubspec.lock || true
+          grep -A6 -E "^  (path_provider_android|jni):" pubspec.lock | grep -E "^  [a-z_]+:|version" || true
+          echo "who pulls jni:"; flutter pub deps --style=compact | grep -E "jni" || true
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
