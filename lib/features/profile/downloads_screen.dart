@@ -53,6 +53,8 @@ class DownloadsScreen extends ConsumerWidget {
                 await enhanceDownloaded(context, ref);
               case 'receive':
                 await pickChaptersFile(context);
+              case 'receive_wifi':
+                await context.push(Routes.receiveWifi);
             }
           },
           itemBuilder: (_) => const [
@@ -60,6 +62,7 @@ class DownloadsScreen extends ConsumerWidget {
             PopupMenuItem(value: 'resume', child: Text('Продолжить все')),
             PopupMenuItem(value: 'retry', child: Text('Повторить неудачные')),
             PopupMenuItem(value: 'upscale', child: Text('Улучшить скачанные (ИИ)')),
+            PopupMenuItem(value: 'receive_wifi', child: Text('Принять по Wi-Fi')),
             PopupMenuItem(value: 'receive', child: Text('Получить главы из файла')),
           ],
         ),
@@ -74,11 +77,18 @@ class DownloadsScreen extends ConsumerWidget {
               title: 'Нет загрузок',
               message: 'Скачивайте главы на странице тайтла — они откроются без интернета. '
                   'Или получите главы файлом от друга.',
-              action: OutlinedButton.icon(
-                onPressed: () => pickChaptersFile(context),
-                icon: const Icon(Icons.folder_open_rounded),
-                label: const Text('Получить из файла'),
-              ),
+              action: Wrap(spacing: MfSpace.sm, alignment: WrapAlignment.center, children: [
+                FilledButton.tonalIcon(
+                  onPressed: () => context.push(Routes.receiveWifi),
+                  icon: const Icon(Icons.wifi_tethering_rounded),
+                  label: const Text('Принять по Wi-Fi'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => pickChaptersFile(context),
+                  icon: const Icon(Icons.folder_open_rounded),
+                  label: const Text('Из файла'),
+                ),
+              ]),
             );
           }
           final groups = <String, List<DownloadTask>>{};
@@ -160,7 +170,7 @@ class _Group extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.ios_share_rounded),
             title: const Text('Передать главы'),
-            subtitle: const Text('Файлом без интернета: Quick Share, Bluetooth, Telegram'),
+            subtitle: const Text('Без интернета: по точке доступа или файлом'),
             onTap: () => showSendChaptersSheet(context, ref, tasks),
           ),
         for (final t in tasks)

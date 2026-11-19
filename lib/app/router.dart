@@ -19,6 +19,7 @@ import '../features/reader/reader_screen.dart';
 import '../features/shell/app_shell.dart';
 import '../features/title/title_screen.dart';
 import '../features/transfer/transfer_ui.dart';
+import '../features/transfer/wifi_transfer_ui.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -27,6 +28,7 @@ abstract final class Routes {
   static String reader(String sourceId, String mangaId, String chapterId, {int? page}) =>
       '/reader/$sourceId/$mangaId/$chapterId${page != null ? '?page=$page' : ''}';
   static String source(String sourceId) => '/source/$sourceId';
+  static const receiveWifi = '/receive-wifi';
   static String importChapters(String path) => Uri(path: '/import', queryParameters: {'path': path}).toString();
 }
 
@@ -79,6 +81,7 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/review', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const YearReviewScreen()),
         GoRoute(path: '/bookmarks', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const BookmarksScreen()),
         GoRoute(path: '/downloads', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const DownloadsScreen()),
+        GoRoute(path: '/receive-wifi', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const WifiReceiveScreen()),
         GoRoute(
           path: '/import',
           parentNavigatorKey: rootNavigatorKey,

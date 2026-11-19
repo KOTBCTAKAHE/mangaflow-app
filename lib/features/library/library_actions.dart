@@ -179,7 +179,8 @@ Future<void> showCollectionsManager(BuildContext context, WidgetRef ref) async {
   );
 }
 
-Future<String?> promptText(BuildContext context, {required String title, String initial = '', String? hint}) {
+Future<String?> promptText(BuildContext context,
+    {required String title, String initial = '', String? hint, TextInputType? keyboard}) {
   final c = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
@@ -188,6 +189,7 @@ Future<String?> promptText(BuildContext context, {required String title, String 
       content: TextField(
         controller: c,
         autofocus: true,
+        keyboardType: keyboard,
         decoration: InputDecoration(hintText: hint),
         onSubmitted: (v) => Navigator.pop(context, v.trim()),
       ),

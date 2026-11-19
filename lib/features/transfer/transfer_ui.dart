@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -20,6 +21,7 @@ import '../../data/services/transfer/chapter_transfer.dart';
 import '../../data/services/transfer/zip.dart';
 import '../../widgets/net_image.dart';
 import '../../widgets/states.dart';
+import 'wifi_transfer_ui.dart';
 
 final chapterTransferProvider = Provider((ref) {
   final m = ref.watch(downloadManagerProvider);
@@ -91,7 +93,8 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
 
   List<DownloadTask> get _selected => [for (final t in widget.tasks) if (_picked.contains(t.chapterId)) t];
 
-  Future<void> _send() async {
+  /// Builds the pack; [wifi] → hand it over the hotspot, else the share sheet.
+  Future<void> _send({bool wifi = false}) async {
     final tasks = _selected;
     if (tasks.isEmpty) return;
     setState(() => _progress = 0);
@@ -102,7 +105,7 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
           MangaDetails(sourceId: first.sourceId, sourceName: first.sourceId, id: first.mangaId, title: first.mangaTitle, coverUrl: first.coverUrl);
       final known = {for (final c in cached?.chapters ?? const <Chapter>[]) c.id: c};
       final outDir = Directory('${(await getTemporaryDirectory()).path}/transfer');
-      if (outDir.existsSync()) await outDir.delete(recursive: true); // previous packs were already shared
+      if (outDir.existsSync()) await outDir.delete(recursive: true); // previous packs were already sent
       final result = await ref.read(chapterTransferProvider).exportPack(
             manga: manga,
             chapters: [for (final t in tasks) ExportChapter(t, chapter: known[t.chapterId])],
@@ -114,7 +117,14 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
             },
           );
       if (!mounted) return;
-      Navigator.of(context).pop();
+      final nav = Navigator.of(context);
+      nav.pop();
+      if (wifi) {
+        await nav.push(MaterialPageRoute<void>(
+          builder: (_) => WifiSendScreen(pack: result.file, title: manga.title, chapters: result.chapters),
+        ));
+        return;
+      }
       await SharePlus.instance.share(ShareParams(
         files: [XFile(result.file.path, mimeType: 'application/vnd.comicbook+zip')],
         subject: manga.title,
@@ -145,8 +155,8 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
               Text('Передать главы', style: context.text.titleLarge),
               const SizedBox(height: MfSpace.xs),
               Text(
-                'Получится один файл .cbz. Отправьте его через Quick Share, Bluetooth или Telegram — интернет не нужен. '
-                'На другом телефоне откройте файл в MangaFlow, и главы появятся в «Загрузках».',
+                'Быстрее всего — по точке доступа: телефоны соединяются напрямую по Wi-Fi, без интернета. '
+                'Или отправьте один файл .cbz через Quick Share, Bluetooth, Telegram — на другом телефоне откройте его в MangaFlow.',
                 style: context.text.bodySmall,
               ),
             ]),
@@ -196,11 +206,21 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
                     const SizedBox(height: MfSpace.sm),
                     Text('Собираю файл… ${((_progress ?? 0) * 100).round()}%', style: context.text.bodySmall),
                   ])
-                : FilledButton.icon(
-                    onPressed: sel.isEmpty ? null : _send,
-                    icon: const Icon(Icons.send_rounded),
-                    label: Text(sel.isEmpty ? 'Выберите главы' : 'Отправить ${_chapters(sel.length)} · ~${formatBytes(bytes)}'),
-                  ),
+                : Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                    FilledButton.icon(
+                      onPressed: sel.isEmpty ? null : () => _send(wifi: true),
+                      icon: const Icon(Icons.wifi_tethering_rounded),
+                      label: Text(sel.isEmpty
+                          ? 'Выберите главы'
+                          : 'По точке доступа — быстрее всего · ~${formatBytes(bytes)}'),
+                    ),
+                    const SizedBox(height: MfSpace.sm),
+                    OutlinedButton.icon(
+                      onPressed: sel.isEmpty ? null : _send,
+                      icon: const Icon(Icons.send_rounded),
+                      label: Text('Файлом: Quick Share, Bluetooth, Telegram (${_chapters(sel.length)})'),
+                    ),
+                  ]),
           ),
         ]),
       ),
@@ -219,15 +239,21 @@ Future<void> pickChaptersFile(BuildContext context) async {
 }
 
 class ImportChaptersScreen extends ConsumerStatefulWidget {
-  const ImportChaptersScreen({super.key, required this.path});
+  const ImportChaptersScreen({super.key, required this.path, this.autoImport = false});
   final String path;
+
+  /// Received over Wi-Fi: add right away, no extra tap.
+  final bool autoImport;
 
   @override
   ConsumerState<ImportChaptersScreen> createState() => _ImportChaptersScreenState();
 }
 
 class _ImportChaptersScreenState extends ConsumerState<ImportChaptersScreen> {
-  late final Future<PackPreview> _preview = ref.read(chapterTransferProvider).inspect(widget.path);
+  late final Future<PackPreview> _preview = ref.read(chapterTransferProvider).inspect(widget.path)
+    ..then((_) {
+      if (widget.autoImport && mounted && _progress == null && _result == null) unawaited(_import());
+    }, onError: (Object _) {});
   double? _progress;
   ImportResult? _result;
   String? _error;
@@ -242,7 +268,7 @@ class _ImportChaptersScreenState extends ConsumerState<ImportChaptersScreen> {
         if (mounted) setState(() => _progress = v);
       });
       ref.read(downloadManagerProvider).notifyChanged();
-      if (widget.path.contains('/incoming/')) {
+      if (widget.path.contains('/incoming/') || widget.path.contains('/wifi-in/')) {
         try {
           await File(widget.path).delete(); // our own copy of a received file
         } catch (_) {}
