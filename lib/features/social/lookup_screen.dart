@@ -226,7 +226,7 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
           const SizedBox(height: MfSpace.xl),
           const Center(child: CircularProgressIndicator()),
           const SizedBox(height: MfSpace.sm),
-          Text('Ищу среди миллионов страниц…', textAlign: TextAlign.center, style: context.text.bodySmall),
+          Text('Ищу в нашем индексе страниц, SauceNAO и trace.moe…', textAlign: TextAlign.center, style: context.text.bodySmall),
         ],
         if (_error != null) Padding(padding: const EdgeInsets.only(top: MfSpace.lg), child: Text(_error!, textAlign: TextAlign.center)),
         if (_engines.isNotEmpty && (best == null || _engines.any((e) => e.status == 'no_key' || e.status == 'error')))
@@ -247,7 +247,7 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
                       }),
                       title: Text(e.name),
                       subtitle: Text(switch (e.status) {
-                        'nothing' => 'совпадений нет',
+                        'nothing' => e.detail.contains('индексе') ? 'совпадений нет · ${e.detail.split(', ').last}' : 'совпадений нет',
                         _ => e.detail,
                       }),
                     ),
@@ -419,6 +419,14 @@ class _CandidateCard extends StatelessWidget {
               ]),
             ),
           ]),
+          if (m.hasPage) ...[
+            const SizedBox(height: MfSpace.sm),
+            FilledButton.icon(
+              onPressed: () => context.push(Routes.reader(m.sourceId!, m.mangaId!, m.chapterId!, page: m.pageIndex)),
+              icon: const Icon(Icons.menu_book_rounded),
+              label: Text(m.pageIndex == null ? 'Открыть главу' : 'Открыть на этой странице'),
+            ),
+          ],
           const SizedBox(height: MfSpace.sm),
           if (results.isNotEmpty)
             for (final r in results.take(primary ? 5 : 3))

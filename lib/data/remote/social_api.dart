@@ -237,8 +237,13 @@ class RoomInfo {
 class LookupMatch {
   const LookupMatch({required this.title, this.part = '', this.chapterNumber, required this.similarity, this.thumbnail = '',
       this.isManga = false, this.engine = '', this.names = const [], this.confidence = '', this.engines = const [],
-      this.results = const []});
+      this.results = const [], this.sourceId, this.mangaId, this.chapterId, this.pageIndex});
   final String title, part, thumbnail, engine;
+
+  /// Set when our own index found the exact page: open the reader right there.
+  final String? sourceId, mangaId, chapterId;
+  final int? pageIndex;
+  bool get hasPage => sourceId != null && mangaId != null && chapterId != null;
 
   /// high / medium / low — from the engine's similarity scale and engines agreeing.
   final String confidence;
@@ -258,6 +263,10 @@ class LookupMatch {
         title: j['title'] as String,
         engine: (j['engine'] as String?) ?? '',
         confidence: (j['confidence'] as String?) ?? '',
+        sourceId: j['source_id'] as String?,
+        mangaId: j['manga_id'] as String?,
+        chapterId: j['chapter_id'] as String?,
+        pageIndex: (j['page_index'] as num?)?.toInt(),
         engines: [for (final n in (j['engines'] as List?) ?? const []) n.toString()],
         results: j['results'] is Map ? parseSearchResults(_m(j['results'])).items : const <MangaCard>[],
         names: [for (final n in (j['names'] as List?) ?? const []) n.toString()],
