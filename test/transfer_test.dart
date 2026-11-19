@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangaflow/core/storage/database.dart';
@@ -78,7 +79,7 @@ void main() {
       manga: manga,
       chapters: [for (final t in tasks) ExportChapter(t)],
       outDir: Directory(p.join(tmp.path, 'out')),
-      cover: [1, 2, 3],
+      cover: Uint8List.fromList([1, 2, 3]),
       onProgress: progress.add,
     );
     expect(p.extension(out.file.path), '.cbz');
