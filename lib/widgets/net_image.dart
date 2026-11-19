@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
 
@@ -19,7 +21,7 @@ int fitProxyWidth(double logicalWidth, double dpr) {
 
 /// Adds/replaces `?w=` on an image-proxy URL.
 String withWidth(String url, int width) {
-  if (url.isEmpty) return url;
+  if (url.isEmpty || url.startsWith('file:')) return url;
   final uri = Uri.tryParse(url);
   if (uri == null) return url;
   return uri.replace(queryParameters: {...uri.queryParameters, 'w': '$width'}).toString();
@@ -27,6 +29,8 @@ String withWidth(String url, int width) {
 
 ImageProvider netImage(String url, {int? decodeWidth}) {
   final o = debugNetworkImageOverride;
-  final ImageProvider base = o != null ? o(url) : CachedNetworkImageProvider(url);
+  final ImageProvider base = o != null
+      ? o(url)
+      : (url.startsWith('file:') ? FileImage(File.fromUri(Uri.parse(url))) : CachedNetworkImageProvider(url));
   return decodeWidth == null ? base : ResizeImage(base, width: decodeWidth, allowUpscaling: false);
 }

@@ -12,6 +12,12 @@ import '../models/settings.dart';
 import 'downloads/download_engine.dart';
 import 'downloads/download_runtime.dart';
 
+/// Where a chapter's pages live: `<root>/downloads/<source>/<sha1(source|chapter)[:20]>`.
+String downloadDirFor(String root, String sourceId, String chapterId) {
+  final hash = sha1.convert('$sourceId|$chapterId'.codeUnits).toString().substring(0, 20);
+  return p.join(root, 'downloads', sourceId, hash);
+}
+
 enum DownloadStatus { queued, downloading, completed, failed, paused, retrying }
 
 class DownloadTask {
@@ -121,11 +127,12 @@ class DownloadManager {
     unawaited(_reportCompleted());
   }
 
-  Future<String> _dirFor(String sourceId, String chapterId) async {
-    final root = await _rootDir();
-    final hash = sha1.convert('$sourceId|$chapterId'.codeUnits).toString().substring(0, 20);
-    return p.join(root.path, 'downloads', sourceId, hash);
-  }
+  Future<String> _dirFor(String sourceId, String chapterId) async => downloadDirFor((await _rootDir()).path, sourceId, chapterId);
+
+  Future<Directory> rootDir() => _rootDir();
+
+  /// Lets other writers of the `downloads` table (chapter import) refresh the UI.
+  void notifyChanged() => _changed();
 
   // ------------------------------------------------------------------ queries
   Future<List<DownloadTask>> all() async =>

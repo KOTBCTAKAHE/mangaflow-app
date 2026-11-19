@@ -18,6 +18,7 @@ import '../features/profile/updates_screen.dart';
 import '../features/reader/reader_screen.dart';
 import '../features/shell/app_shell.dart';
 import '../features/title/title_screen.dart';
+import '../features/transfer/transfer_ui.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -26,6 +27,7 @@ abstract final class Routes {
   static String reader(String sourceId, String mangaId, String chapterId, {int? page}) =>
       '/reader/$sourceId/$mangaId/$chapterId${page != null ? '?page=$page' : ''}';
   static String source(String sourceId) => '/source/$sourceId';
+  static String importChapters(String path) => Uri(path: '/import', queryParameters: {'path': path}).toString();
 }
 
 CustomTransitionPage<void> _fade(GoRouterState s, Widget child) => CustomTransitionPage(
@@ -77,6 +79,11 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/review', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const YearReviewScreen()),
         GoRoute(path: '/bookmarks', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const BookmarksScreen()),
         GoRoute(path: '/downloads', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const DownloadsScreen()),
+        GoRoute(
+          path: '/import',
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, s) => ImportChaptersScreen(path: s.uri.queryParameters['path'] ?? ''),
+        ),
         GoRoute(path: '/history', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const HistoryScreen()),
         GoRoute(path: '/updates', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const UpdatesScreen()),
         GoRoute(path: '/sources', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const SourcesScreen()),

@@ -66,6 +66,32 @@ def patch_manifest() -> None:
             text = text.replace("    </queries>", entries + "    </queries>", 1)
         else:
             text = text.replace("</manifest>", "    <queries>\n" + entries + "    </queries>\n</manifest>", 1)
+    if "mangaflow-transfer" not in text:
+        # «Передать главы»: open/share .cbz/.zip files with MangaFlow
+        mimes = "".join(f'                <data android:mimeType="{m}" />\n' for m in (
+            "application/zip", "application/x-zip-compressed", "application/x-cbz",
+            "application/vnd.comicbook+zip", "application/octet-stream"))
+        filters = (
+            '            <!-- mangaflow-transfer -->\n'
+            '            <intent-filter android:label="Открыть в MangaFlow">\n'
+            '                <action android:name="android.intent.action.VIEW" />\n'
+            '                <category android:name="android.intent.category.DEFAULT" />\n'
+            '                <data android:scheme="content" />\n'
+            '                <data android:scheme="file" />\n' + mimes +
+            '            </intent-filter>\n'
+            '            <intent-filter android:label="Добавить в MangaFlow">\n'
+            '                <action android:name="android.intent.action.SEND" />\n'
+            '                <category android:name="android.intent.category.DEFAULT" />\n' + mimes +
+            '            </intent-filter>\n'
+            '            <!-- content:// URIs of opened files must not become go_router routes -->\n'
+            '            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />\n'
+        )
+        launcher = text.find("android.intent.category.LAUNCHER")
+        end = text.find("</intent-filter>", launcher)
+        if launcher < 0 or end < 0:
+            raise SystemExit("patch_android: launcher intent-filter not found")
+        end += len("</intent-filter>\n")
+        text = text[:end] + filters + text[end:]
     if "ContinueWidgetProvider" not in text:
         widget = (
             '        <!-- Home-screen widget "Продолжить чтение" -->\n'

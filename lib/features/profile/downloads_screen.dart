@@ -15,6 +15,7 @@ import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
 import '../../data/services/background_guide.dart';
 import '../downloads_support.dart';
+import '../transfer/transfer_ui.dart';
 import '../../data/services/downloads/download_runtime.dart';
 
 final _downloadsProvider = FutureProvider.autoDispose<(List<DownloadTask>, int, DownloadsState, bool)>((ref) async {
@@ -50,6 +51,8 @@ class DownloadsScreen extends ConsumerWidget {
                 await m.retryAllFailed();
               case 'upscale':
                 await enhanceDownloaded(context, ref);
+              case 'receive':
+                await pickChaptersFile(context);
             }
           },
           itemBuilder: (_) => const [
@@ -57,6 +60,7 @@ class DownloadsScreen extends ConsumerWidget {
             PopupMenuItem(value: 'resume', child: Text('Продолжить все')),
             PopupMenuItem(value: 'retry', child: Text('Повторить неудачные')),
             PopupMenuItem(value: 'upscale', child: Text('Улучшить скачанные (ИИ)')),
+            PopupMenuItem(value: 'receive', child: Text('Получить главы из файла')),
           ],
         ),
       ]),
@@ -65,10 +69,16 @@ class DownloadsScreen extends ConsumerWidget {
         data: (d) {
           final (tasks, bytes, state, batteryOk) = d;
           if (tasks.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.download_for_offline_outlined,
               title: 'Нет загрузок',
-              message: 'Скачивайте главы на странице тайтла — они откроются без интернета.',
+              message: 'Скачивайте главы на странице тайтла — они откроются без интернета. '
+                  'Или получите главы файлом от друга.',
+              action: OutlinedButton.icon(
+                onPressed: () => pickChaptersFile(context),
+                icon: const Icon(Icons.folder_open_rounded),
+                label: const Text('Получить из файла'),
+              ),
             );
           }
           final groups = <String, List<DownloadTask>>{};
@@ -146,6 +156,13 @@ class _Group extends ConsumerWidget {
           title: const Text('Открыть тайтл'),
           onTap: () => context.push(Routes.title(first.sourceId, first.mangaId)),
         ),
+        if (done > 0)
+          ListTile(
+            leading: const Icon(Icons.ios_share_rounded),
+            title: const Text('Передать главы'),
+            subtitle: const Text('Файлом без интернета: Quick Share, Bluetooth, Telegram'),
+            onTap: () => showSendChaptersSheet(context, ref, tasks),
+          ),
         for (final t in tasks)
           ListTile(
             dense: true,

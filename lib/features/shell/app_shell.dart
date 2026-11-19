@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/router.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/reading.dart';
 import '../../data/services/home_widget_sync.dart';
+import '../../data/services/transfer/incoming_files.dart';
 import '../../widgets/effects.dart';
 import '../update_dialog.dart';
 
@@ -33,6 +35,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       // home-screen widget: open the chapter it shows
       HomeWidgetSync.listen((route) {
         if (mounted) GoRouter.of(context).push(route);
+      });
+      // a .cbz opened with / shared to MangaFlow → «Получить главы»
+      IncomingFiles.listen((path) {
+        if (mounted) GoRouter.of(context).push(Routes.importChapters(path));
       });
     });
     // keep the widget in sync with "continue reading"
