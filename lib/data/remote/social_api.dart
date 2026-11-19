@@ -236,8 +236,16 @@ class RoomInfo {
 
 class LookupMatch {
   const LookupMatch({required this.title, this.part = '', this.chapterNumber, required this.similarity, this.thumbnail = '',
-      this.isManga = false, this.engine = '', this.names = const []});
+      this.isManga = false, this.engine = '', this.names = const [], this.confidence = '', this.engines = const [],
+      this.results = const []});
   final String title, part, thumbnail, engine;
+
+  /// high / medium / low — from the engine's similarity scale and engines agreeing.
+  final String confidence;
+  final List<String> engines;
+
+  /// Titles in our sources that really are this match (filtered on the server).
+  final List<MangaCard> results;
   final double? chapterNumber;
   final double similarity;
   final bool isManga;
@@ -249,6 +257,9 @@ class LookupMatch {
   factory LookupMatch.fromJson(Map<String, dynamic> j) => LookupMatch(
         title: j['title'] as String,
         engine: (j['engine'] as String?) ?? '',
+        confidence: (j['confidence'] as String?) ?? '',
+        engines: [for (final n in (j['engines'] as List?) ?? const []) n.toString()],
+        results: j['results'] is Map ? parseSearchResults(_m(j['results'])).items : const <MangaCard>[],
         names: [for (final n in (j['names'] as List?) ?? const []) n.toString()],
         part: (j['part'] as String?) ?? '',
         chapterNumber: (j['chapter_number'] as num?)?.toDouble(),
@@ -465,7 +476,8 @@ class SocialApi {
           ));
       final m = _m(res.data);
       return (
-        matches: [for (final x in _l(m['matches'])) LookupMatch.fromJson(x)],
+        // candidates carry their own results; older servers only send matches
+        matches: [for (final x in _l(m['candidates'] ?? m['matches'])) LookupMatch.fromJson(x)],
         results: m['results'] is Map ? parseSearchResults(_m(m['results'])).items : const <MangaCard>[],
         engines: [for (final x in _l(m['engines'] ?? const [])) LookupEngine.fromJson(x)],
       );

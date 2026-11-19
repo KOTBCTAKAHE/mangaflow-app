@@ -257,58 +257,21 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
           ),
         if (best != null) ...[
           const SizedBox(height: MfSpace.lg),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.auto_awesome_rounded),
-              title: Text(best.title, style: context.text.titleMedium),
-              subtitle: Text([
-                if (best.searchName != best.title) best.searchName,
-                if (best.part.isNotEmpty) best.part,
-                'совпадение ${best.similarity.round()}%',
-                if (best.engine.isNotEmpty) best.engine,
-              ].join(' · ')),
-            ),
-          ),
-          if (_results.isNotEmpty) ...[
+          if (best.confidence == 'low')
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: MfSpace.sm),
-              child: Text('Читать в источниках', style: context.text.titleSmall),
+              padding: const EdgeInsets.only(bottom: MfSpace.sm),
+              child: Text('Точного совпадения нет — сравните картинки вариантов со своей. '
+                  'Выделите только рисунок без надписей, и поиск станет точнее.',
+                  style: context.text.bodySmall),
             ),
-            for (final m in _results.take(8))
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: SizedBox(width: 36, child: MangaCover(url: m.coverUrl, width: 36, radius: MfRadius.sm, shadow: false)),
-                title: Text(m.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                subtitle: Text([m.sourceName ?? m.sourceId, ...m.alsoIn.map((a) => a.sourceName ?? a.sourceId)].join(' · '),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.push(Routes.title(m.sourceId, m.id)),
-              ),
-          ] else
-            OutlinedButton.icon(
-              onPressed: () => _searchTitle(best.searchName),
-              icon: const Icon(Icons.search_rounded),
-              label: const Text('Искать по названию'),
+          for (final (i, m) in _matches.indexed)
+            _CandidateCard(
+              match: m,
+              primary: i == 0,
+              // older servers send results only for the best match
+              results: m.results.isEmpty && i == 0 ? _results : m.results,
+              onSearch: () => _searchTitle(m.searchName),
             ),
-          if (_matches.length > 1) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: MfSpace.lg, bottom: MfSpace.xs),
-              child: Text('Другие варианты', style: context.text.titleSmall),
-            ),
-            for (final m in _matches.skip(1))
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(m.searchName),
-                subtitle: Text([
-                  if (m.searchName != m.title) m.title,
-                  if (m.part.isNotEmpty) m.part,
-                  '${m.similarity.round()}%',
-                  if (m.engine.isNotEmpty) m.engine,
-                ].join(' · ')),
-                trailing: const Icon(Icons.search_rounded),
-                onTap: () => _searchTitle(m.searchName),
-              ),
-          ],
         ],
       ]),
     );
@@ -401,4 +364,86 @@ class _CropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CropPainter old) => old.area != area || old.color != color;
+}
+
+/// One guess: its picture from the engine (to compare by eye), how sure we are, and where to read it.
+class _CandidateCard extends StatelessWidget {
+  const _CandidateCard({required this.match, required this.primary, required this.results, required this.onSearch});
+  final LookupMatch match;
+  final bool primary;
+  final List<MangaCard> results;
+  final VoidCallback onSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = match;
+    final (label, color) = switch (m.confidence) {
+      'high' => ('точно', MfColors.success),
+      'medium' => ('похоже', context.colors.primary),
+      'low' => ('возможно', context.colors.outline),
+      _ => ('', context.colors.outline),
+    };
+    return Card(
+      margin: const EdgeInsets.only(bottom: MfSpace.md),
+      child: Padding(
+        padding: const EdgeInsets.all(MfSpace.md),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (m.thumbnail.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(MfRadius.sm),
+                child: Image.network(m.thumbnail, width: 72, height: 100, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox(width: 72, height: 100)),
+              ),
+            if (m.thumbnail.isNotEmpty) const SizedBox(width: MfSpace.md),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (label.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: MfSpace.xs),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(MfRadius.pill),
+                    ),
+                    child: Text('$label · ${m.similarity.round()}%', style: context.text.labelSmall?.copyWith(color: color)),
+                  ),
+                Text(m.searchName, style: primary ? context.text.titleMedium : context.text.titleSmall,
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                if (m.searchName != m.title)
+                  Text(m.title, style: context.text.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text([
+                  if (m.part.isNotEmpty) m.part,
+                  (m.engines.isEmpty ? [m.engine] : m.engines).where((e) => e.isNotEmpty).join(' + '),
+                ].where((e) => e.isNotEmpty).join(' · '), style: context.text.bodySmall),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: MfSpace.sm),
+          if (results.isNotEmpty)
+            for (final r in results.take(primary ? 5 : 3))
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: SizedBox(width: 32, child: MangaCover(url: r.coverUrl, width: 32, radius: MfRadius.sm, shadow: false)),
+                title: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text([r.sourceName ?? r.sourceId, ...r.alsoIn.map((a) => a.sourceName ?? a.sourceId)].join(' · '),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push(Routes.title(r.sourceId, r.id)),
+              )
+          else
+            Text('В источниках с таким названием не нашлось', style: context.text.bodySmall),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: onSearch,
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: Text('Искать «${m.searchName}»', maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 }
