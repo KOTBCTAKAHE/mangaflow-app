@@ -39,6 +39,20 @@ class ChapterNotifier {
     return granted ?? iosGranted ?? true;
   }
 
+  /// One-off info notification (e.g. "pages enhanced") that stays after the service stops.
+  Future<void> showInfo(int id, String title, String body) async {
+    await init();
+    await _plugin.show(
+      id,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(_channel.id, _channel.name, channelDescription: _channel.description),
+        iOS: const DarwinNotificationDetails(),
+      ),
+    );
+  }
+
   Future<void> showNewChapters(List<ChapterUpdate> updates) async {
     if (updates.isEmpty) return;
     await init();

@@ -19,6 +19,19 @@ class UpscaleProgress {
 /// Pref the reader writes with the screen's physical width ("Авто" mode needs it here).
 const upscaleTargetWidthPref = 'upscale_target_width';
 
+/// Set by the app before starting the service: also enhance pages that were skipped
+/// as "already sharp enough" (user pressed «Улучшить всё равно»).
+const upscaleForcePref = 'upscale_force_pass';
+
+/// What a pass would do.
+class UpscaleScan {
+  const UpscaleScan({required this.chapters, required this.pages, required this.sharpEnough, required this.done});
+  final int chapters;
+  final int pages; // still to enhance
+  final int sharpEnough; // skipped as already sharp (would be done with force)
+  final int done;
+}
+
 /// Upscales downloaded chapters inside the download service — so a title queued
 /// before bed is downloaded *and* enhanced by morning. Results go next to the pages
 /// (see [localHdPath]); the reader picks them up instantly.
@@ -45,6 +58,14 @@ class DownloadUpscaler {
   String? _current;
   int processed = 0;
 
+  /// Pages left as they are because they are already at least screen-wide («Авто»).
+  int skippedSharp = 0;
+
+  /// Why the last pass stopped early (shown in the final notification), or null.
+  String? problem;
+
+  bool force = false;
+
   bool get enabled {
     final s = settings();
     return s.upscaleDownloads && s.upscaleMode != UpscaleMode.off;
@@ -63,8 +84,40 @@ class DownloadUpscaler {
       ..sort((a, b) => a.path.compareTo(b.path));
   }
 
-  static bool _handled(File page, UpscaleQuality q) =>
-      File(localHdPath(page.path, q)).existsSync() || File(localHdPath(page.path, q, skipMarker: true)).existsSync();
+  /// Done, or skipped for good. With [force], pages skipped as "large enough" count as pending.
+  static bool _handled(File page, UpscaleQuality q, {bool force = false}) {
+    if (File(localHdPath(page.path, q)).existsSync()) return true;
+    final marker = File(localHdPath(page.path, q, skipMarker: true));
+    if (!marker.existsSync()) return false;
+    if (!force) return true;
+    try {
+      return marker.readAsStringSync() != 'large_enough';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Counts what is left, for the "Улучшить скачанные" button.
+  Future<UpscaleScan> scan() async {
+    final q = settings().upscaleQuality;
+    final rows = await db.query('downloads', where: "status = 'done'");
+    var chapters = 0, pages = 0, sharp = 0, done = 0;
+    for (final r in rows) {
+      var pending = 0;
+      for (final p in _pages(r['dir']! as String)) {
+        if (File(localHdPath(p.path, q)).existsSync()) {
+          done++;
+        } else if (!_handled(p, q)) {
+          pending++;
+        } else if (_handled(p, q) && !_handled(p, q, force: true)) {
+          sharp++;
+        }
+      }
+      if (pending > 0) chapters++;
+      pages += pending;
+    }
+    return UpscaleScan(chapters: chapters, pages: pages, sharpEnough: sharp, done: done);
+  }
 
   /// Chapters (oldest download first) that still have pages to enhance.
   Future<List<Map<String, Object?>>> pendingChapters() async {
@@ -72,7 +125,7 @@ class DownloadUpscaler {
     final rows = await db.query('downloads', where: "status = 'done'", orderBy: 'created_at ASC');
     return [
       for (final r in rows)
-        if (_pages(r['dir']! as String).any((p) => !_handled(p, q))) r,
+        if (_pages(r['dir']! as String).any((p) => !_handled(p, q, force: force))) r,
     ];
   }
 
@@ -85,11 +138,11 @@ class DownloadUpscaler {
       final s = settings();
       final q = s.upscaleQuality;
       final target = prefs.getInt(upscaleTargetWidthPref) ?? 1080;
-      final maxSourceWidth = s.upscaleMode == UpscaleMode.always ? 1800 : (target * 0.95).round();
+      final maxSourceWidth = force ? 1 << 30 : (s.upscaleMode == UpscaleMode.always ? 1800 : (target * 0.95).round());
       final pages = _pages(row['dir']! as String);
       for (var i = 0; i < pages.length && !_stopped; i++) {
         final page = pages[i];
-        if (_handled(page, q)) continue;
+        if (_handled(page, q, force: force)) continue;
         if (await shouldYield?.call() ?? false) return;
         onProgress?.call(UpscaleProgress(
           mangaTitle: row['manga_title'] as String? ?? '',
@@ -109,6 +162,14 @@ class DownloadUpscaler {
             processed++;
           case 'cancelled':
             return;
+          case 'skipped' when r.message == 'unsupported_platform':
+          case 'error' when r.message == 'out_of_memory' || (r.message ?? '').contains('Missing'):
+            // the engine itself is unavailable here — don't mark pages, report and stop
+            problem = r.message;
+            return;
+          case 'skipped' when r.message == 'large_enough':
+            skippedSharp++;
+            await File(localHdPath(page.path, q, skipMarker: true)).writeAsString('large_enough');
           default:
             // skipped (already sharp / too big) or failed: remember, don't retry every night
             await File(localHdPath(page.path, q, skipMarker: true)).writeAsString(r.message ?? r.status);

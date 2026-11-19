@@ -90,8 +90,38 @@ void main() {
     expect(off.runs, isEmpty);
   });
 
+  test('scan explains already-sharp pages; force re-runs them; engine problems leave no markers', () async {
+    final sharp = Fake()..status = (_) => 'skipped';
+    final up = DownloadUpscaler(db: db.db, settings: () => settings, prefs: prefs, backend: sharp);
+    expect((await up.scan()).pages, 5);
+    await up.run();
+    expect(up.skippedSharp, 5);
+    expect(up.processed, 0);
+    final s = await up.scan();
+    expect((s.pages, s.sharpEnough), (0, 5));
+    final forced = Fake();
+    final f = DownloadUpscaler(db: db.db, settings: () => settings, prefs: prefs, backend: forced)..force = true;
+    await f.run();
+    expect(f.processed, 5);
+    expect((await f.scan()).done, 5);
+  });
+
+  test('an unavailable engine is reported, pages stay pending', () async {
+    final broken = _Unsupported();
+    final up = DownloadUpscaler(db: db.db, settings: () => settings, prefs: prefs, backend: broken);
+    await up.run();
+    expect(up.problem, 'unsupported_platform');
+    expect((await up.scan()).pages, 5);
+  });
+
   test('hd path sits next to the page', () {
     expect(localHdPath('/d/ch/0003.webp', UpscaleQuality.max), '/d/ch/hd_max/0003.jpg');
     expect(localHdPath('/d/ch/0003.webp', UpscaleQuality.fast, skipMarker: true), '/d/ch/hd_fast/0003.skip');
   });
+}
+
+class _Unsupported extends Fake {
+  @override
+  Future<UpscaleOutcome> run({required String id, required String input, required String output, required UpscaleQuality quality, required int maxSourceWidth, int maxOutPixels = 24000000}) async =>
+      const UpscaleOutcome('skipped', message: 'unsupported_platform');
 }

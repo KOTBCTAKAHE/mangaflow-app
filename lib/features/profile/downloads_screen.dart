@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +10,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/utils/format.dart';
 import '../../data/models/settings.dart';
 import '../../data/services/download_manager.dart';
+import '../../data/services/downloads/download_upscale.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
 import '../../data/services/background_guide.dart';
@@ -47,19 +49,7 @@ class DownloadsScreen extends ConsumerWidget {
               case 'retry':
                 await m.retryAllFailed();
               case 'upscale':
-                final s = ref.read(settingsProvider);
-                if (s.upscaleMode == UpscaleMode.off || !s.upscaleDownloads) {
-                  await ref.read(settingsProvider.notifier).update((x) => x.copyWith(
-                        upscaleDownloads: true,
-                        upscaleMode: x.upscaleMode == UpscaleMode.off ? UpscaleMode.auto : x.upscaleMode,
-                      ));
-                }
-                final ok = await DownloadService.ensureStarted();
-                if (context.mounted) {
-                  showSnack(context, ok
-                      ? 'Улучшаю скачанные главы в фоне — прогресс в уведомлении'
-                      : 'Не удалось запустить фоновую службу');
-                }
+                await enhanceDownloaded(context, ref);
             }
           },
           itemBuilder: (_) => const [
@@ -214,4 +204,59 @@ class _Banner extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// «Улучшить скачанные (ИИ)»: explain what will happen (or why nothing will), then start.
+Future<void> enhanceDownloaded(BuildContext context, WidgetRef ref) async {
+  final s = ref.read(settingsProvider);
+  if (s.upscaleMode == UpscaleMode.off || !s.upscaleDownloads) {
+    await ref.read(settingsProvider.notifier).update((x) => x.copyWith(
+          upscaleDownloads: true,
+          upscaleMode: x.upscaleMode == UpscaleMode.off ? UpscaleMode.auto : x.upscaleMode,
+        ));
+  }
+  final prefs = ref.read(prefsProvider);
+  final scan = await DownloadUpscaler(
+    db: ref.read(databaseProvider).db,
+    settings: () => ref.read(settingsProvider),
+    prefs: prefs,
+  ).scan();
+  if (!context.mounted) return;
+  var force = false;
+  if (scan.pages == 0) {
+    if (scan.sharpEnough == 0) {
+      showSnack(context, scan.done > 0 ? 'Все скачанные страницы уже улучшены ✓' : 'Нет скачанных глав — сначала скачайте главы');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Страницы уже чёткие'),
+        content: Text('${scan.sharpEnough} стр. не меньше ширины вашего экрана — в режиме «Авто» нейросеть их пропускает, '
+            'разница почти не видна. Улучшить всё равно? Это займёт больше времени и места.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Не надо')),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Улучшить всё равно')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    force = true;
+  }
+  await prefs.setBool(upscaleForcePref, force);
+  await ensureBackgroundAllowed(context, ref);
+  if (await DownloadService.isRunning()) {
+    FlutterForegroundTask.sendDataToTask('upscale');
+    if (context.mounted) {
+      showSnack(context, 'Фоновая служба уже работает: улучшение начнётся сразу после загрузок');
+    }
+    return;
+  }
+  final started = await DownloadService.ensureStarted();
+  if (!context.mounted) return;
+  final n = force ? scan.sharpEnough : scan.pages;
+  showSnack(
+    context,
+    started ? 'Улучшаю $n стр. в фоне — прогресс в уведомлении «Улучшение страниц (ИИ)»' : 'Не удалось запустить фоновую службу',
+  );
 }

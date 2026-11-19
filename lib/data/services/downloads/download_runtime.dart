@@ -13,6 +13,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/storage/database.dart';
 import '../../models/settings.dart';
 import '../../remote/catalog_api.dart';
+import '../notifications.dart';
 import 'download_engine.dart';
 import 'download_upscale.dart';
 
@@ -133,6 +134,15 @@ abstract final class DownloadService {
   static Future<bool> isRunning() async => supported && await FlutterForegroundTask.isRunningService;
 
   /// Starts the service if needed; false when Android refused (caller falls back to in-process).
+  static Future<bool> isRunning() async {
+    if (!supported) return false;
+    try {
+      return await FlutterForegroundTask.isRunningService;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<bool> ensureStarted() async {
     if (!supported) return false;
     try {
@@ -173,13 +183,16 @@ class DownloadTaskHandler extends TaskHandler {
   PrefsSettings? _settings;
   Database? _db;
   bool _destroyed = false;
+  bool _upscaling = false;
   DateTime _lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
   EngineEvent? _last;
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     _db = (await AppDatabase.open()).db; // shared native handle: never closed here
-    _settings = PrefsSettings(await SharedPreferences.getInstance());
+    final sp = await SharedPreferences.getInstance();
+    await sp.reload(); // the app may have changed settings right before starting us
+    _settings = PrefsSettings(sp);
     _engine = buildEngine(db: _db!, owner: 'service', settings: () => _settings!.value, onProgress: _onProgress);
     _upscaler = DownloadUpscaler(
       db: _db!,
@@ -190,7 +203,8 @@ class DownloadTaskHandler extends TaskHandler {
         unawaited(_notify());
       },
       shouldYield: () async => _destroyed || await _pendingDownloads() > 0,
-    );
+    )..force = sp.getBool(upscaleForcePref) ?? false;
+    await sp.remove(upscaleForcePref);
     unawaited(_loop());
   }
 
@@ -203,13 +217,32 @@ class DownloadTaskHandler extends TaskHandler {
       }
       if (_destroyed || _paused) break;
       // Downloads are done: enhance the downloaded pages with AI (overnight mode).
+      _upscaling = true;
+      await _notify(force: true);
       await _upscaler!.run();
+      _upscaling = false;
       _up = null;
       if (!_destroyed && !_paused && await _pendingDownloads() > 0) continue; // new chapters were queued meanwhile
       break; // idle or stopped
     }
     if (!_destroyed) {
       await _notify(force: true, finished: true);
+      // the service notification disappears with the service: leave a normal one with the result
+      final up = _upscaler;
+      if (up != null && up.problem != null) {
+        final why = switch (up.problem) {
+          'unsupported_platform' => 'нейросеть недоступна на этом устройстве',
+          'out_of_memory' => 'не хватило памяти — выберите качество «Быстро»',
+          _ => up.problem!,
+        };
+        await ChapterNotifier.instance.showInfo(7001, 'Улучшение страниц не удалось', why);
+      } else if (up != null && up.processed > 0) {
+        await ChapterNotifier.instance.showInfo(7001, 'Страницы улучшены (ИИ)',
+            'Готово: ${up.processed} стр.${up.skippedSharp > 0 ? ' Уже чётких пропущено: ${up.skippedSharp}.' : ''}');
+      } else if (up != null && up.skippedSharp > 0) {
+        await ChapterNotifier.instance.showInfo(7001, 'Страницы уже чёткие',
+            '${up.skippedSharp} стр. не меньше ширины экрана — нейросеть их пропустила. Чтобы улучшить всё равно, нажмите «Улучшить скачанные (ИИ)» ещё раз.');
+      }
       await FlutterForegroundTask.stopService();
     }
   }
@@ -244,7 +277,10 @@ class DownloadTaskHandler extends TaskHandler {
     final String title;
     final String text;
     final up = _up;
-    if (!finished && up != null && pending == 0) {
+    if (!finished && up == null && _upscaling && pending == 0) {
+      title = 'Улучшение страниц (ИИ)';
+      text = 'Подготовка нейросети…';
+    } else if (!finished && up != null && pending == 0) {
       title = 'Улучшение страниц (ИИ) · глав осталось ${up.chaptersLeft}';
       text = '${[up.mangaTitle, up.chapterTitle].where((s) => s.isNotEmpty).join(' · ')} · стр. ${up.page}/${up.pages}';
     } else if (finished) {
@@ -267,6 +303,19 @@ class DownloadTaskHandler extends TaskHandler {
       text = [e?.mangaTitle, e?.chapterTitle].whereType<String>().join(' · ');
     }
     await FlutterForegroundTask.updateService(notificationTitle: title, notificationText: text);
+  }
+
+  @override
+  void onReceiveData(Object data) {
+    // «Улучшить скачанные» pressed while we are already running
+    if (data == 'upscale') {
+      unawaited(() async {
+        final sp = await SharedPreferences.getInstance();
+        await sp.reload();
+        if (sp.getBool(upscaleForcePref) ?? false) _upscaler?.force = true;
+        await sp.remove(upscaleForcePref);
+      }());
+    }
   }
 
   @override
