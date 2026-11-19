@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/image_urls.dart';
 import '../models/manga.dart';
 
 class CatalogFilters {
@@ -107,7 +108,7 @@ class CatalogApi {
           for (final p in m['pages'] as List)
             PageRef(
               index: (p as Map)['index'] as int,
-              url: width == null ? p['url'] as String : '${p['url']}?w=$width',
+              url: ImageUrls.fix(width == null ? p['url'] as String : '${p['url']}?w=$width'),
             ),
         ];
       });

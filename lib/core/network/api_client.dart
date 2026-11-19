@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../data/models/user.dart';
 import '../config.dart';
 import 'api_exception.dart';
+import 'image_urls.dart';
 
 /// Supplies and refreshes credentials for [ApiClient]. Implemented by the auth repository.
 abstract interface class TokenProvider {
@@ -25,6 +26,7 @@ class ApiClient {
               receiveTimeout: AppConfig.receiveTimeout,
               headers: {'Accept': 'application/json'},
             )) {
+    ImageUrls.setApiBase(baseUrl);
     this.dio.interceptors.add(_AuthInterceptor(this));
   }
 

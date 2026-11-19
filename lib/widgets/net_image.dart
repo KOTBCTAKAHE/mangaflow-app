@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/network/image_urls.dart';
+
 /// Test/screenshot hook: substitute every network image (covers, pages).
 ImageProvider Function(String url)? debugNetworkImageOverride;
 
@@ -22,12 +24,14 @@ int fitProxyWidth(double logicalWidth, double dpr) {
 /// Adds/replaces `?w=` on an image-proxy URL.
 String withWidth(String url, int width) {
   if (url.isEmpty || url.startsWith('file:')) return url;
+  url = ImageUrls.fix(url);
   final uri = Uri.tryParse(url);
   if (uri == null) return url;
   return uri.replace(queryParameters: {...uri.queryParameters, 'w': '$width'}).toString();
 }
 
 ImageProvider netImage(String url, {int? decodeWidth}) {
+  url = ImageUrls.fix(url);
   final o = debugNetworkImageOverride;
   final ImageProvider base = o != null
       ? o(url)
