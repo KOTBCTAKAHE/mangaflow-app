@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../core/network/network_status.dart';
 import '../../core/config.dart';
 import '../../core/network/api_exception.dart';
 import '../local/daos.dart';
@@ -117,7 +118,7 @@ class CatalogRepository {
   /// Local files for downloaded chapters, otherwise signed URLs from the server.
   Future<List<PageRef>> pages(String sourceId, String chapterId) async {
     final local = await downloads.localPages(sourceId, chapterId);
-    final pages = local ?? await api.pages(sourceId, chapterId, width: settings().imageQuality.width);
+    final pages = local ?? await api.pages(sourceId, chapterId, width: effectivePageWidth(settings()));
     return [for (final p in pages) p.withKey('$sourceId/$chapterId/${p.index}')];
   }
 }

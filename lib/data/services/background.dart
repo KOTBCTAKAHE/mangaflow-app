@@ -11,6 +11,7 @@ import '../../core/storage/database.dart';
 import '../../core/storage/secure_store.dart';
 import '../local/daos.dart';
 import '../models/reading.dart';
+import 'auto_download.dart';
 import 'download_manager.dart' show kDownloadsWorkTask;
 import 'downloads/download_runtime.dart';
 import '../models/settings.dart';
@@ -29,6 +30,10 @@ void backgroundDispatcher() {
     try {
       if (task == kDownloadsWorkTask) {
         await _resumeDownloads();
+        return true;
+      }
+      if (task == kAutoDownloadTask) {
+        await AutoDownload.run();
         return true;
       }
       await BackgroundUpdates.run();

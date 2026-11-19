@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../social/comments_sheet.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
@@ -18,6 +19,7 @@ import '../../widgets/effects.dart';
 import '../../widgets/net_image.dart';
 import '../../widgets/manga_widgets.dart' show showFullTitle;
 import '../../widgets/states.dart';
+import 'co_reading.dart';
 import 'reader_controller.dart';
 import 'reader_settings_sheet.dart';
 import 'bookmark_sheet.dart';
@@ -26,11 +28,14 @@ import 'upscale_compare_screen.dart';
 import 'reader_views.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
-  const ReaderScreen({super.key, required this.sourceId, required this.mangaId, required this.chapterId, this.initialPage});
+  const ReaderScreen({super.key, required this.sourceId, required this.mangaId, required this.chapterId, this.initialPage, this.roomCode});
   final String sourceId;
   final String mangaId;
   final String chapterId;
   final int? initialPage;
+
+  /// Joined «Читать вместе» room.
+  final String? roomCode;
 
   @override
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
@@ -40,6 +45,23 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   late final ReaderController c;
   late final PageUpscaler _up = ref.read(pageUpscalerProvider);
   (int, int, int)? _focused;
+  ReadingRoom? _room;
+
+  void _setRoom(ReadingRoom? r) {
+    final old = _room;
+    _room = r;
+    if (old != null) unawaited(old.close());
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _together() async {
+    if (_room != null) {
+      await showRoomCode(context, _room!.code, c.manga?.title ?? '');
+      return;
+    }
+    final r = await startRoom(context, ref, c);
+    if (r != null) _setRoom(r);
+  }
 
   @override
   void initState() {
@@ -61,7 +83,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         return size.width >= 840 && size.width > size.height;
       }(),
     )..addListener(_onChange);
-    unawaited(c.init());
+    unawaited(c.init().then((_) {
+      final code = widget.roomCode;
+      if (code == null || !mounted) return;
+      final room = ReadingRoom(
+          code: code, api: ref.read(socialApiProvider), token: ref.read(authProvider.notifier).accessToken, reader: c);
+      unawaited(room.connect());
+      _setRoom(room);
+    }));
     if (ref.read(settingsProvider).keepScreenOn) unawaited(WakelockPlus.enable().catchError((Object _) {}));
     _applyVolumeKeys(ref.read(settingsProvider));
     c.setUpscaler(_up.enabled ? _up : null);
@@ -110,6 +139,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _onChange() {
     _focusUpscale();
+    _room?.onReaderChanged();
     final seg = c.current;
     if (seg != null && c.pageCount > 1 && c.page >= c.pageCount - 1 && _endBuzzed != seg.chapter.id) {
       _endBuzzed = seg.chapter.id;
@@ -123,6 +153,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   void dispose() {
+    unawaited(_room?.close());
     c.removeListener(_onChange);
     unawaited(_up.stop());
     unawaited(VolumeKeys.disable());
@@ -184,7 +215,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   child: LinearProgressIndicator(minHeight: 2, backgroundColor: Colors.transparent),
                 ),
               _MiniIndicator(c: c),
-              _Overlay(c: c),
+              if (_room != null) RoomOverlay(room: _room!, uiVisible: c.uiVisible, onLeave: () => _setRoom(null)),
+              _Overlay(c: c, onTogether: _together, inRoom: _room?.code),
               if (s.tapZones) _TapHint(c: c),
             ]);
           },
@@ -238,8 +270,10 @@ class _MiniIndicator extends StatelessWidget {
 }
 
 class _Overlay extends ConsumerWidget {
-  const _Overlay({required this.c});
+  const _Overlay({required this.c, required this.onTogether, this.inRoom});
   final ReaderController c;
+  final VoidCallback onTogether;
+  final String? inRoom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -324,6 +358,17 @@ class _Overlay extends ConsumerWidget {
                     final modes = ReadingMode.values;
                     c.setMode(modes[(modes.indexOf(c.mode) + 1) % modes.length]);
                     showSnack(context, c.mode.label);
+                  case 'panels':
+                    final on = !ref.read(settingsProvider).panelMode;
+                    ref.read(settingsProvider.notifier).update((x) => x.copyWith(panelMode: on));
+                    showSnack(context, on ? 'По кадрам: тап по краю — следующий кадр' : 'Обычный режим страниц');
+                  case 'together':
+                    onTogether();
+                  case 'comments':
+                    final m = c.manga;
+                    if (seg == null || m == null) return;
+                    showChapterComments(context,
+                        sourceId: m.sourceId, mangaId: m.id, chapterId: seg.chapter.id, chapterTitle: seg.chapter.title, pageIndex: c.page);
                 }
               },
               itemBuilder: (_) => [
@@ -334,6 +379,25 @@ class _Overlay extends ConsumerWidget {
                 PopupMenuItem(
                   value: 'mode',
                   child: ListTile(leading: const Icon(Icons.swap_horiz_rounded), title: const Text('Сменить режим'), subtitle: Text(c.mode.label)),
+                ),
+                if (c.mode.isPaged && c.mode != ReadingMode.doublePage)
+                  PopupMenuItem(
+                    value: 'panels',
+                    child: ListTile(
+                      leading: const Icon(Icons.crop_free_rounded),
+                      title: const Text('Читать по кадрам'),
+                      trailing: Icon(ref.read(settingsProvider).panelMode ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded),
+                    ),
+                  ),
+                if (seg != null)
+                  const PopupMenuItem(value: 'comments', child: ListTile(leading: Icon(Icons.forum_outlined), title: Text('Комментарии к главе'))),
+                PopupMenuItem(
+                  value: 'together',
+                  child: ListTile(
+                    leading: const Icon(Icons.groups_2_outlined),
+                    title: Text(inRoom == null ? 'Читать вместе' : 'Комната $inRoom'),
+                    subtitle: inRoom == null ? const Text('Синхронно с другом + реакции') : null,
+                  ),
                 ),
               ],
             ),

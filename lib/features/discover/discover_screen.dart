@@ -93,7 +93,11 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         hintText: 'Название манги, манхвы, маньхуа…',
                         prefixIcon: const Icon(Icons.search_rounded),
                         suffixIcon: st.query.isEmpty
-                            ? null
+                            ? IconButton(
+                                tooltip: 'Найти по скриншоту',
+                                icon: const Icon(Icons.image_search_rounded),
+                                onPressed: () => context.push('/lookup'),
+                              )
                             : IconButton(
                                 tooltip: 'Очистить',
                                 icon: const Icon(Icons.close_rounded),

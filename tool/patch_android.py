@@ -83,6 +83,11 @@ def patch_manifest() -> None:
             '                <action android:name="android.intent.action.SEND" />\n'
             '                <category android:name="android.intent.category.DEFAULT" />\n' + mimes +
             '            </intent-filter>\n'
+            '            <intent-filter android:label="Найти мангу по картинке">\n'
+            '                <action android:name="android.intent.action.SEND" />\n'
+            '                <category android:name="android.intent.category.DEFAULT" />\n'
+            '                <data android:mimeType="image/*" />\n'
+            '            </intent-filter>\n'
             '            <!-- content:// URIs of opened files must not become go_router routes -->\n'
             '            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />\n'
         )

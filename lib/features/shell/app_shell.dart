@@ -9,6 +9,7 @@ import '../../app/router.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/reading.dart';
+import '../../core/network/network_status.dart';
 import '../../data/services/home_widget_sync.dart';
 import '../../data/services/transfer/incoming_files.dart';
 import '../../widgets/effects.dart';
@@ -36,9 +37,13 @@ class _AppShellState extends ConsumerState<AppShell> {
       HomeWidgetSync.listen((route) {
         if (mounted) GoRouter.of(context).push(route);
       });
+      unawaited(NetworkStatus.start());
       // a .cbz opened with / shared to MangaFlow → «Получить главы»
       IncomingFiles.listen((path) {
-        if (mounted) GoRouter.of(context).push(Routes.importChapters(path));
+        if (!mounted) return;
+        // a picture shared to MangaFlow → «Найти по скриншоту»; archives → «Получить главы»
+        final isImage = RegExp(r'\.(jpe?g|png|webp|gif|heic|avif)$', caseSensitive: false).hasMatch(path);
+        GoRouter.of(context).push(isImage ? Routes.lookup(path) : Routes.importChapters(path));
       });
     });
     // keep the widget in sync with "continue reading"

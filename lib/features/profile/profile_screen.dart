@@ -10,6 +10,7 @@ import '../../data/models/reading.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/services/sync_engine.dart';
 import '../../widgets/effects.dart';
+import '../reader/co_reading.dart';
 import 'stats_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -50,11 +51,22 @@ class ProfileScreen extends ConsumerWidget {
         const SizedBox(height: MfSpace.md),
         const _Link(icon: Icons.insights_outlined, title: 'Статистика', subtitle: 'Время чтения, серии, календарь', route: '/stats'),
         const _Link(icon: Icons.auto_awesome_rounded, title: 'Итоги года', subtitle: 'Карточка, которой можно поделиться', route: '/review'),
+        const _Link(icon: Icons.group_rounded, title: 'Друзья', subtitle: 'Что читают, оценки, советы', route: '/friends'),
+        ListTile(
+          leading: const Icon(Icons.groups_2_outlined),
+          title: const Text('Читать вместе'),
+          subtitle: const Text('Войти в комнату по коду друга'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => joinRoomFlow(context, ref),
+        ),
+        const _Link(icon: Icons.image_search_rounded, title: 'Найти по скриншоту', subtitle: 'Страница или кадр → тайтл и глава', route: '/lookup'),
+        const _Link(icon: Icons.sync_alt_rounded, title: 'Трекеры', subtitle: 'Shikimori, MyAnimeList, AniList', route: '/trackers'),
         const _Link(icon: Icons.bookmarks_outlined, title: 'Закладки', subtitle: 'Страницы с заметками', route: '/bookmarks'),
         const _Link(icon: Icons.history_rounded, title: 'История чтения', route: '/history'),
         const _Link(icon: Icons.notifications_none_rounded, title: 'Новые главы', route: '/updates'),
         const _Link(icon: Icons.download_for_offline_outlined, title: 'Загрузки', subtitle: 'Главы для чтения офлайн', route: '/downloads'),
         const _Link(icon: Icons.public_rounded, title: 'Источники', subtitle: 'Включение, состояние, 18+', route: '/sources'),
+        const _Link(icon: Icons.move_to_inbox_rounded, title: 'Импорт из Mihon / Tachiyomi', subtitle: 'Библиотека, категории и прогресс из .tachibk', route: '/import-mihon'),
         const _Link(icon: Icons.settings_outlined, title: 'Настройки', subtitle: 'Сервер, тема, читалка, резервные копии', route: '/settings'),
       ]),
     );

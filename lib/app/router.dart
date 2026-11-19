@@ -17,6 +17,9 @@ import '../features/profile/stats_screen.dart';
 import '../features/profile/updates_screen.dart';
 import '../features/reader/reader_screen.dart';
 import '../features/shell/app_shell.dart';
+import '../features/social/lookup_screen.dart';
+import '../features/social/mihon_import_screen.dart';
+import '../features/social/social_screens.dart';
 import '../features/title/title_screen.dart';
 import '../features/transfer/transfer_ui.dart';
 import '../features/transfer/wifi_transfer_ui.dart';
@@ -25,10 +28,13 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 abstract final class Routes {
   static String title(String sourceId, String mangaId) => '/title/$sourceId/$mangaId';
-  static String reader(String sourceId, String mangaId, String chapterId, {int? page}) =>
-      '/reader/$sourceId/$mangaId/$chapterId${page != null ? '?page=$page' : ''}';
+  static String reader(String sourceId, String mangaId, String chapterId, {int? page, String? room}) {
+    final q = {if (page != null) 'page': '$page', if (room != null) 'room': room};
+    return Uri(path: '/reader/$sourceId/$mangaId/$chapterId', queryParameters: q.isEmpty ? null : q).toString();
+  }
   static String source(String sourceId) => '/source/$sourceId';
   static const receiveWifi = '/receive-wifi';
+  static String lookup([String? path]) => Uri(path: '/lookup', queryParameters: path == null ? null : {'path': path}).toString();
   static String importChapters(String path) => Uri(path: '/import', queryParameters: {'path': path}).toString();
 }
 
@@ -67,6 +73,7 @@ GoRouter buildRouter() => GoRouter(
               mangaId: s.pathParameters['manga']!,
               chapterId: s.pathParameters['chapter']!,
               initialPage: int.tryParse(s.uri.queryParameters['page'] ?? ''),
+              roomCode: s.uri.queryParameters['room'],
             ),
           ),
         ),
@@ -81,6 +88,14 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/review', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const YearReviewScreen()),
         GoRoute(path: '/bookmarks', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const BookmarksScreen()),
         GoRoute(path: '/downloads', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const DownloadsScreen()),
+        GoRoute(path: '/friends', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const FriendsScreen()),
+        GoRoute(path: '/trackers', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const TrackersScreen()),
+        GoRoute(
+          path: '/lookup',
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, s) => LookupScreen(path: s.uri.queryParameters['path']),
+        ),
+        GoRoute(path: '/import-mihon', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const MihonImportScreen()),
         GoRoute(path: '/receive-wifi', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const WifiReceiveScreen()),
         GoRoute(
           path: '/import',

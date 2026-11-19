@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../social/social_screens.dart';
 import '../../app/router.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -136,6 +137,12 @@ class _Body extends ConsumerWidget {
         SliverToBoxAdapter(child: _ProgressStrip(read: readCount, total: data.chapters.length)),
       SliverToBoxAdapter(child: _Info(manga: m)),
       SliverToBoxAdapter(child: _TitleBookmarks(k: k)),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
+          child: TitleSocialPanel(manga: m),
+        ),
+      ),
       SliverToBoxAdapter(
         child: OtherSourcesPanel(
           k: k,

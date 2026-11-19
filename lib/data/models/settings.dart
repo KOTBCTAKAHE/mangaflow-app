@@ -101,6 +101,9 @@ class AppSettings {
     this.upscaleMode = UpscaleMode.auto,
     this.upscaleQuality = UpscaleQuality.fast,
     this.upscaleDownloads = true,
+    this.panelMode = false,
+    this.mobileDataSaver = true,
+    this.autoDownloadNew = false,
   });
 
   final String apiBaseUrl;
@@ -146,6 +149,15 @@ class AppSettings {
 
   /// Upscale downloaded chapters in the background download service (e.g. overnight).
   final bool upscaleDownloads;
+
+  /// Paged reader: zoom from panel to panel («по кадрам»).
+  final bool panelMode;
+
+  /// On mobile data load pages at 720px (AI upscaling on the phone restores sharpness).
+  final bool mobileDataSaver;
+
+  /// Download new chapters of «Читаю» titles on Wi-Fi while charging.
+  final bool autoDownloadNew;
   final DateTime updatedAt;
 
   AppSettings copyWith({
@@ -176,6 +188,9 @@ class AppSettings {
     UpscaleMode? upscaleMode,
     UpscaleQuality? upscaleQuality,
     bool? upscaleDownloads,
+    bool? panelMode,
+    bool? mobileDataSaver,
+    bool? autoDownloadNew,
     DateTime? updatedAt,
   }) =>
       AppSettings(
@@ -206,6 +221,9 @@ class AppSettings {
         upscaleMode: upscaleMode ?? this.upscaleMode,
         upscaleQuality: upscaleQuality ?? this.upscaleQuality,
         upscaleDownloads: upscaleDownloads ?? this.upscaleDownloads,
+        panelMode: panelMode ?? this.panelMode,
+        mobileDataSaver: mobileDataSaver ?? this.mobileDataSaver,
+        autoDownloadNew: autoDownloadNew ?? this.autoDownloadNew,
         updatedAt: updatedAt ?? DateTime.now().toUtc(),
       );
 
@@ -235,6 +253,9 @@ class AppSettings {
         'upscale_mode_v2': upscaleMode.api,
         'upscale_quality': upscaleQuality.api,
         'upscale_downloads': upscaleDownloads,
+        'panel_mode': panelMode,
+        'mobile_data_saver': mobileDataSaver,
+        'auto_download_new': autoDownloadNew,
       };
 
   Map<String, dynamic> toJson() => {
@@ -276,6 +297,9 @@ class AppSettings {
       upscaleMode: j['upscale_mode_v2'] == null ? UpscaleMode.auto : UpscaleMode.parse(j['upscale_mode_v2'] as String?),
       upscaleQuality: UpscaleQuality.parse(j['upscale_quality'] as String?),
       upscaleDownloads: j['upscale_downloads'] as bool? ?? true,
+      panelMode: j['panel_mode'] as bool? ?? false,
+      mobileDataSaver: j['mobile_data_saver'] as bool? ?? true,
+      autoDownloadNew: j['auto_download_new'] as bool? ?? false,
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }

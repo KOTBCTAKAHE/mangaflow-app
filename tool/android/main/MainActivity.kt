@@ -85,6 +85,10 @@ class MainActivity : FlutterActivity() {
                 contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                     if (c.moveToFirst() && !c.isNull(0)) name = c.getString(0)
                 }
+                val mime = intent.type ?: contentResolver.getType(uri) ?: ""
+                if (mime.startsWith("image/") && !Regex("\\.(jpe?g|png|webp|gif|heic|avif)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) {
+                    name = "shared." + mime.substringAfter('/').replace("jpeg", "jpg").substringBefore(';')
+                }
                 val dir = File(cacheDir, "incoming").apply { mkdirs() }
                 dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > 86_400_000L }?.forEach { it.delete() }
                 val safe = name.replace(Regex("[^\\p{L}\\p{N}._ ()-]"), "_").take(120)

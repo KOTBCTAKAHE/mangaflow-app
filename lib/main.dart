@@ -12,6 +12,7 @@ import 'app/router.dart';
 import 'core/providers.dart';
 import 'core/storage/database.dart';
 import 'core/theme/tokens.dart';
+import 'data/services/auto_download.dart';
 import 'data/services/background.dart';
 import 'data/services/downloads/download_runtime.dart';
 import 'data/services/notifications.dart';
@@ -61,6 +62,7 @@ Future<void> main() async {
     if (container.read(settingsProvider).notifyUpdates) {
       unawaited(BackgroundUpdates.register().catchError((Object _) {}));
     }
+    unawaited(AutoDownload.sync(container.read(settingsProvider).autoDownloadNew));
   }
 
   runApp(UncontrolledProviderScope(container: container, child: MangaFlowApp(router: buildRouter())));

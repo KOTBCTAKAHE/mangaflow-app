@@ -10,6 +10,7 @@ import '../../data/models/manga.dart';
 import '../title/other_sources.dart';
 import 'reader_controller.dart';
 import 'reader_page_image.dart';
+import 'reader_panels.dart';
 
 /// Decides what a tap at [pos] means (paged modes): -1 previous, 1 next, 0 toggle UI.
 int tapZone(Offset pos, Size size, {required bool rtl}) {
@@ -417,6 +418,11 @@ class PagedReader extends StatefulWidget {
 
 class _PagedReaderState extends State<PagedReader> {
   PageController? _pc;
+  final _pageKeys = <int, GlobalKey<_ZoomablePageState>>{};
+  bool _enterAtEnd = false;
+
+  /// «По кадрам» is for single pages (spreads are already small).
+  bool get _panels => c.settings().panelMode && !_double;
   int _anchorVersion = -1;
   bool _zoomed = false;
   bool _autoAdvancing = false;
@@ -459,7 +465,10 @@ class _PagedReaderState extends State<PagedReader> {
   void _go(int delta) {
     final pc = _pc;
     if (pc == null || !pc.hasClients) return;
-    final target = (pc.page?.round() ?? 0) + delta;
+    final current = pc.page?.round() ?? 0;
+    if (_panels && (_pageKeys[current]?.currentState?.stepPanel(delta) ?? false)) return;
+    _enterAtEnd = delta < 0;
+    final target = current + delta;
     if (target < 0) {
       c.goPrevChapter();
       return;
@@ -478,6 +487,7 @@ class _PagedReaderState extends State<PagedReader> {
       _pc = PageController(initialPage: _spreadOf(spreads, c.anchorPage));
       _zoomed = false;
       _autoAdvancing = false;
+      _pageKeys.clear();
     }
     final rtl = c.mode.isRtl;
 
@@ -486,7 +496,8 @@ class _PagedReaderState extends State<PagedReader> {
         behavior: HitTestBehavior.opaque,
         onLongPress: c.longPressPage,
         onTapUp: (d) {
-          final zone = widget.tapZones && !_zoomed ? tapZone(d.localPosition, box.biggest, rtl: rtl) : 0;
+          // «по кадрам» the page is always zoomed in: side taps still step panels
+          final zone = widget.tapZones && (!_zoomed || _panels) ? tapZone(d.localPosition, box.biggest, rtl: rtl) : 0;
           if (zone == 0) {
             c.toggleUi();
           } else {
@@ -515,7 +526,14 @@ class _PagedReaderState extends State<PagedReader> {
             if (i >= spreads.length) return _PagedEnd(c: c);
             final pages = [for (final p in spreads[i]) seg.pages[p]];
             final ordered = rtl ? pages.reversed.toList() : pages;
+            final panelPage = _panels && pages.length == 1 ? pages.first : null;
+            final startAtEnd = _enterAtEnd;
+            _enterAtEnd = false;
             return _ZoomablePage(
+              key: panelPage == null ? null : _pageKeys.putIfAbsent(i, GlobalKey<_ZoomablePageState>.new),
+              panelPage: panelPage,
+              rtl: rtl,
+              startAtEnd: startAtEnd,
               onZoomChanged: (z) {
                 if (z != _zoomed) setState(() => _zoomed = z);
               },
@@ -536,9 +554,23 @@ class _PagedReaderState extends State<PagedReader> {
 }
 
 class _ZoomablePage extends StatefulWidget {
-  const _ZoomablePage({required this.child, required this.onZoomChanged});
+  const _ZoomablePage({
+    super.key,
+    required this.child,
+    required this.onZoomChanged,
+    this.panelPage,
+    this.rtl = false,
+    this.startAtEnd = false,
+  });
   final Widget child;
   final ValueChanged<bool> onZoomChanged;
+
+  /// «По кадрам»: the page whose panels to step through (null = plain zoom).
+  final PageRef? panelPage;
+  final bool rtl;
+
+  /// Came here going backwards: start at the last panel.
+  final bool startAtEnd;
 
   @override
   State<_ZoomablePage> createState() => _ZoomablePageState();
@@ -550,6 +582,9 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
   Animation<Matrix4>? _tween;
   TapDownDetails? _tap;
   bool _zoomed = false;
+
+  PanelLayout? _layout;
+  int _panel = -1; // -1: whole page
 
   @override
   void initState() {
@@ -565,6 +600,42 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
       final t = _tween;
       if (t != null) _t.value = t.value;
     });
+    final p = widget.panelPage;
+    if (p != null) {
+      unawaited(PanelDetector.layout('${p.localPath ?? p.url}|${widget.rtl}', pageImageProvider(p), rtl: widget.rtl).then((l) {
+        if (!mounted || l == null) return;
+        _layout = l;
+        if (!l.isSingle) _showPanel(widget.startAtEnd ? l.panels.length - 1 : 0, animate: false);
+      }));
+    }
+  }
+
+  void _animateTo(Matrix4 end, {bool animate = true}) {
+    if (!animate) {
+      _t.value = end;
+      return;
+    }
+    _tween = Matrix4Tween(begin: _t.value, end: end).animate(CurvedAnimation(parent: _anim, curve: MfMotion.emphasized));
+    _anim.forward(from: 0);
+  }
+
+  void _showPanel(int i, {bool animate = true}) {
+    final l = _layout;
+    final size = context.size;
+    if (l == null || size == null || size.isEmpty) return;
+    _panel = i;
+    _animateTo(i < 0 ? Matrix4.identity() : panelMatrix(l.panels[i], l.aspect, size), animate: animate);
+  }
+
+  /// Next/previous panel; false when the page has none left in that direction.
+  bool stepPanel(int delta) {
+    final l = _layout;
+    if (l == null || l.isSingle) return false;
+    final next = _panel + delta;
+    if (next < 0 || next >= l.panels.length) return false;
+    HapticFeedback.selectionClick();
+    _showPanel(next);
+    return true;
   }
 
   @override
@@ -575,6 +646,11 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
   }
 
   void _toggleZoom() {
+    if (_layout != null && !_layout!.isSingle) {
+      // panel mode: double tap = whole page ↔ current panel
+      _showPanel(_panel >= 0 && _zoomed ? -1 : (_panel < 0 ? 0 : _panel));
+      return;
+    }
     final p = _tap?.localPosition ?? Offset.zero;
     final end = _zoomed
         ? Matrix4.identity()

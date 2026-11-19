@@ -130,42 +130,46 @@ class CatalogApi {
             'include_nsfw': includeNsfw,
           },
           cancel: cancel,
-          parse: (d) {
-            final m = (d as Map).cast<String, dynamic>();
-            final items = <MangaCard>[];
-            for (final raw in m['items'] as List) {
-              final g = (raw as Map).cast<String, dynamic>();
-              final hits = [
-                for (final s in g['sources'] as List)
-                  MangaCard(
-                    sourceId: (s as Map)['source_id'] as String,
-                    id: s['id'] as String,
-                    title: s['title'] as String? ?? '',
-                    coverUrl: s['cover_url'] as String? ?? '',
-                    sourceName: s['source_name'] as String?,
-                  ),
-              ];
-              final first = hits.first;
-              items.add(MangaCard(
-                sourceId: first.sourceId,
-                id: first.id,
-                title: g['title'] as String? ?? first.title,
-                coverUrl: g['cover_url'] as String? ?? first.coverUrl,
-                kind: MangaKind.parse(g['type'] as String?),
-                sourceName: first.sourceName,
-                alsoIn: hits.skip(1).toList(),
-              ));
-            }
-            return SearchResults(
-              items: items,
-              page: m['page'] as int? ?? page,
-              hasNext: m['has_next'] as bool? ?? false,
-              errors: [for (final e in m['errors'] as List? ?? const []) SourceFailure.fromJson((e as Map).cast())],
-            );
-          });
+          parse: (d) => parseSearchResults((d as Map).cast<String, dynamic>(), page: page));
 
   Future<List<Map<String, dynamic>>> manifest(String sourceId, List<String> chapterIds) =>
       client.post('/downloads/manifest',
           body: {'source_id': sourceId, 'chapter_ids': chapterIds},
           parse: (d) => [for (final c in ((d as Map)['chapters'] as List)) (c as Map).cast<String, dynamic>()]);
+}
+
+
+/// Grouped global-search payload (`items[].sources[]`) → cards.
+SearchResults parseSearchResults(Map<String, dynamic> m, {int page = 1}) {
+  final items = <MangaCard>[];
+  for (final raw in m['items'] as List) {
+    final g = (raw as Map).cast<String, dynamic>();
+    final hits = [
+      for (final s in g['sources'] as List)
+        MangaCard(
+          sourceId: (s as Map)['source_id'] as String,
+          id: s['id'] as String,
+          title: s['title'] as String? ?? '',
+          coverUrl: s['cover_url'] as String? ?? '',
+          sourceName: s['source_name'] as String?,
+        ),
+    ];
+    if (hits.isEmpty) continue;
+    final first = hits.first;
+    items.add(MangaCard(
+      sourceId: first.sourceId,
+      id: first.id,
+      title: g['title'] as String? ?? first.title,
+      coverUrl: g['cover_url'] as String? ?? first.coverUrl,
+      kind: MangaKind.parse(g['type'] as String?),
+      sourceName: first.sourceName,
+      alsoIn: hits.skip(1).toList(),
+    ));
+  }
+  return SearchResults(
+    items: items,
+    page: m['page'] as int? ?? page,
+    hasNext: m['has_next'] as bool? ?? false,
+    errors: [for (final e in m['errors'] as List? ?? const []) SourceFailure.fromJson((e as Map).cast())],
+  );
 }

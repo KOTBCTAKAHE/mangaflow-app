@@ -14,6 +14,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/settings.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/services/auto_download.dart';
 import '../../data/services/background.dart';
 import '../../data/services/notifications.dart';
 import '../../widgets/states.dart';
@@ -116,6 +117,20 @@ class SettingsScreen extends ConsumerWidget {
           },
         ),
         SwitchListTile(
+          secondary: const Icon(Icons.signal_cellular_alt_rounded),
+          title: const Text('Экономия трафика на мобильном'),
+          subtitle: const Text('Без Wi-Fi страницы грузятся в 720px — в ~2–3 раза меньше трафика. Улучшение ИИ на телефоне возвращает чёткость.'),
+          value: s.mobileDataSaver,
+          onChanged: (v) => ctrl.update((x) => x.copyWith(mobileDataSaver: v)),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.crop_free_rounded),
+          title: const Text('Чтение по кадрам'),
+          subtitle: const Text('В страничном режиме: тап по краю — следующий кадр с плавным приближением'),
+          value: s.panelMode,
+          onChanged: (v) => ctrl.update((x) => x.copyWith(panelMode: v)),
+        ),
+        SwitchListTile(
           secondary: const Icon(Icons.skip_next_outlined),
           title: const Text('Автопереход к следующей главе'),
           value: s.autoNextChapter,
@@ -182,6 +197,17 @@ class SettingsScreen extends ConsumerWidget {
             } else {
               await BackgroundUpdates.cancel().catchError((Object _) {});
             }
+          },
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.download_for_offline_rounded),
+          title: const Text('Автоскачивание новых глав'),
+          subtitle: const Text('Для тайтлов «Читаю»: до 5 непрочитанных глав вперёд, только по Wi-Fi и на зарядке'),
+          value: s.autoDownloadNew,
+          onChanged: (v) async {
+            await ctrl.update((x) => x.copyWith(autoDownloadNew: v));
+            await AutoDownload.sync(v);
+            if (v && context.mounted) showSnack(context, 'Новые главы будут скачиваться ночью на зарядке по Wi-Fi');
           },
         ),
         SwitchListTile(
