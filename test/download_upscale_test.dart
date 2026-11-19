@@ -38,7 +38,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
     settings = AppSettings(apiBaseUrl: 'x', updatedAt: DateTime.utc(2026));
-    for (final (ch, status, n) in [('c1', 'done', 3), ('c2', 'done', 2), ('c3', 'queued', 2)]) {
+    for (final (ch, status, n) in [('c1', 'completed', 3), ('c2', 'completed', 2), ('c3', 'queued', 2)]) {
       final dir = Directory('${tmp.path}/$ch')..createSync();
       for (var i = 0; i < n; i++) {
         File('${dir.path}/${i.toString().padLeft(4, '0')}.webp').writeAsBytesSync([0]);

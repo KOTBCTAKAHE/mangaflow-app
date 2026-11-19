@@ -100,7 +100,7 @@ class DownloadUpscaler {
   /// Counts what is left, for the "Улучшить скачанные" button.
   Future<UpscaleScan> scan() async {
     final q = settings().upscaleQuality;
-    final rows = await db.query('downloads', where: "status = 'done'");
+    final rows = await db.query('downloads', where: "status = 'completed'");
     var chapters = 0, pages = 0, sharp = 0, done = 0;
     for (final r in rows) {
       var pending = 0;
@@ -122,7 +122,7 @@ class DownloadUpscaler {
   /// Chapters (oldest download first) that still have pages to enhance.
   Future<List<Map<String, Object?>>> pendingChapters() async {
     final q = settings().upscaleQuality;
-    final rows = await db.query('downloads', where: "status = 'done'", orderBy: 'created_at ASC');
+    final rows = await db.query('downloads', where: "status = 'completed'", orderBy: 'created_at ASC');
     return [
       for (final r in rows)
         if (_pages(r['dir']! as String).any((p) => !_handled(p, q, force: force))) r,
