@@ -99,7 +99,10 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
         if (r.matches.isEmpty) _error = 'Ничего похожего не нашлось. Лучше всего работает чистая страница манги без обрезки.';
       });
     } catch (e) {
-      if (mounted) setState(() => (_busy, _error) = (false, errorText(e)));
+      if (mounted) setState(() {
+          _busy = false;
+          _error = errorText(e);
+        });
     }
   }
 

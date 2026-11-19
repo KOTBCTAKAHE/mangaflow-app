@@ -634,9 +634,16 @@ class _CandidatePickerState extends ConsumerState<_CandidatePicker> {
     setState(() => _busy = true);
     try {
       final r = await ref.read(socialApiProvider).trackerSearch(widget.service, _q.text.trim());
-      if (mounted) setState(() => (_items, _error, _busy) = (r, null, false));
+      if (mounted) setState(() {
+          _items = r;
+          _error = null;
+          _busy = false;
+        });
     } catch (e) {
-      if (mounted) setState(() => (_error, _busy) = (errorText(e), false));
+      if (mounted) setState(() {
+          _error = errorText(e);
+          _busy = false;
+        });
     }
   }
 

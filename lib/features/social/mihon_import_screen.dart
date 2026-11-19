@@ -150,13 +150,19 @@ class _MihonImportScreenState extends ConsumerState<MihonImportScreen> {
             row.note = '${t.manga.sourceName}${last == null ? '' : ' · прочитано до гл. ${_n(last)}'}';
           });
         } catch (e) {
-          setState(() => (row.state, row.note) = (_RowState.failed, errorText(e)));
+          setState(() {
+            row.state = _RowState.failed;
+            row.note = errorText(e);
+          });
         }
       }
     }
 
     await Future.wait([worker(), worker(), worker()]);
-    if (mounted) setState(() => (_running, _finished) = (false, true));
+    if (mounted) setState(() {
+        _running = false;
+        _finished = true;
+      });
     unawaited(ref.read(syncEngineProvider).sync().catchError((Object _) {}));
   }
 

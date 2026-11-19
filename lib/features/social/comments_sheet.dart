@@ -76,7 +76,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => (_loading, _error) = (false, errorText(e)));
+      if (mounted) setState(() {
+          _loading = false;
+          _error = errorText(e);
+        });
     }
   }
 
@@ -88,7 +91,11 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       final c = await _api.addComment(widget.sourceId, widget.mangaId, widget.chapterId, t,
           pageIndex: _attachPage ? widget.pageIndex : null);
       _text.clear();
-      if (mounted) setState(() => (_items..insert(0, c), _total++, _sending = false));
+      if (mounted) setState(() {
+          _items.insert(0, c);
+          _total++;
+          _sending = false;
+        });
     } catch (e) {
       if (mounted) {
         setState(() => _sending = false);
@@ -184,7 +191,10 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                     );
                                     if (ok != true) return;
                                     await _api.deleteComment(c.id);
-                                    if (mounted) setState(() => (_items.removeAt(i), _total--));
+                                    if (mounted) setState(() {
+                                      _items.removeAt(i);
+                                      _total--;
+                                    });
                                   },
                           );
                         },
