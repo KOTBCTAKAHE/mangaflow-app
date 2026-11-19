@@ -67,8 +67,9 @@ class MainActivity : FlutterActivity() {
     }
 
     /** A .cbz/.zip opened with (VIEW) or shared to (SEND) MangaFlow: copy it into the cache for Dart. */
-    private fun handleIncoming(intent: Intent?) {
-        val uri: Uri = when (intent?.action) {
+    private fun handleIncoming(incoming: Intent?) {
+        val intent = incoming ?: return
+        val uri: Uri = when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> if (Build.VERSION.SDK_INT >= 33) {
                 intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
