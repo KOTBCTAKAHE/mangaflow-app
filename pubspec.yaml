@@ -1,7 +1,7 @@
 name: mangaflow
 description: "MangaFlow — читалка манги, манхвы и маньхуа с русскоязычными источниками."
 publish_to: "none"
-version: 2.5.0+29
+version: 2.6.0+30
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -37,6 +37,7 @@ dependencies:
   device_info_plus: any
   android_intent_plus: any
   url_launcher: any
+  local_auth: ^3.0.2
 
 # path_provider_android 2.3.x switched to JNI and fails in release builds with
 # "ClassNotFoundException: Landroid/content/Context;" — every getTemporaryDirectory()

@@ -89,8 +89,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         ref.read(searchControllerProvider.notifier).submit();
                         ref.invalidate(searchHistoryProvider);
                       },
+                      minLines: 1,
+                      maxLines: st.plot ? 3 : 1,
                       decoration: InputDecoration(
-                        hintText: 'Название манги, манхвы, маньхуа…',
+                        hintText: st.plot ? 'Что помните о сюжете? «герой переродился пауком…»' : 'Название манги, манхвы, маньхуа…',
                         prefixIcon: const Icon(Icons.search_rounded),
                         suffixIcon: st.query.isEmpty
                             ? IconButton(
@@ -127,10 +129,15 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 ]),
               ),
             ),
-            if (sources.length > 1)
+            SliverToBoxAdapter(child: _ModeSwitch(plot: st.plot)),
+            if (sources.length > 1 && !st.plot)
               SliverToBoxAdapter(child: _SourceFilter(sources: sources, selected: st.sources)),
-            if (st.isIdle)
+            if (st.isIdle && st.plot)
+              SliverToBoxAdapter(child: _PlotTips(onPick: _setQuery))
+            else if (st.isIdle)
               ..._idle(context, sources)
+            else if (st.plot)
+              ..._plotResults(context, st)
             else
               ..._results(context, st),
             SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, MfSpace.huge))),
@@ -243,9 +250,22 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           ),
         ),
       if (st.items.isEmpty)
-        const SliverFillRemaining(
+        SliverFillRemaining(
           hasScrollBody: false,
-          child: EmptyState(icon: Icons.search_off_rounded, title: 'Ничего не найдено', message: 'Попробуйте другое написание или уберите фильтры'),
+          child: EmptyState(
+            icon: Icons.search_off_rounded,
+            title: 'Ничего не найдено',
+            message: st.looksLikePlot
+                ? 'Похоже, это описание, а не название. Поиск по сюжету найдёт тайтл по тому, что вы помните'
+                : 'Попробуйте другое написание или уберите фильтры',
+            action: st.looksLikePlot
+                ? FilledButton.icon(
+                    onPressed: () => ref.read(searchControllerProvider.notifier).setPlotMode(true),
+                    icon: const Icon(Icons.auto_awesome_rounded),
+                    label: const Text('Искать по сюжету'),
+                  )
+                : null,
+          ),
         )
       else
         SliverPadding(
@@ -271,6 +291,94 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         const SliverToBoxAdapter(
           child: Padding(padding: EdgeInsets.all(MfSpace.xl), child: Center(child: CircularProgressIndicator(strokeWidth: 2.5))),
         ),
+    ];
+  }
+
+  List<Widget> _plotResults(BuildContext context, SearchState st) {
+    if (st.loading) {
+      return const [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(MfSpace.xxl),
+            child: Column(children: [
+              CircularProgressIndicator(strokeWidth: 2.5),
+              SizedBox(height: MfSpace.md),
+              Text('Сравниваю с описаниями тайтлов…'),
+            ]),
+          ),
+        ),
+      ];
+    }
+    if (st.error != null) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: ErrorState(error: st.error!, onRetry: ref.read(searchControllerProvider.notifier).submit),
+        ),
+      ];
+    }
+    if (st.plotHits.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyState(
+            icon: Icons.auto_awesome_rounded,
+            title: 'Ничего похожего',
+            message: st.plotIndexed == 0
+                ? 'Сервер ещё собирает описания тайтлов — попробуйте немного позже'
+                : 'Опишите подробнее: кто герой, где происходит, что необычного',
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.md, MfSpace.gutter, MfSpace.xs),
+          child: Text(
+            'Самые близкие по сюжету — из ${st.plotIndexed} описаний',
+            style: context.text.bodySmall?.copyWith(color: context.textTertiary),
+          ),
+        ),
+      ),
+      SliverList.builder(
+        itemCount: st.plotHits.length,
+        itemBuilder: (context, i) {
+          final h = st.plotHits[i];
+          final c = h.card;
+          return InkWell(
+            onTap: () => c.alsoIn.isEmpty ? context.push(Routes.title(c.sourceId, c.id)) : _pickSource(c),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter, vertical: MfSpace.sm),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                MangaCover(url: c.coverUrl, width: 64, radius: MfRadius.sm),
+                const SizedBox(width: MfSpace.md),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(c.title, style: context.text.titleSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text(
+                      [c.sourceName ?? c.sourceId, ...c.alsoIn.map((x) => x.sourceName ?? x.sourceId)].join(' · '),
+                      style: context.text.bodySmall?.copyWith(color: context.textTertiary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (h.snippet.isNotEmpty) ...[
+                      const SizedBox(height: MfSpace.xs),
+                      Text(h.snippet, style: context.text.bodySmall, maxLines: 3, overflow: TextOverflow.ellipsis),
+                    ],
+                    if (h.genres.isNotEmpty) ...[
+                      const SizedBox(height: MfSpace.xs),
+                      Text(h.genres.take(4).join(', '),
+                          style: context.text.labelSmall?.copyWith(color: MfColors.accent), maxLines: 1),
+                    ],
+                  ]),
+                ),
+              ]),
+            ),
+          );
+        },
+      ),
     ];
   }
 
@@ -394,6 +502,66 @@ class GenreTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// «По названию» / «По сюжету».
+class _ModeSwitch extends ConsumerWidget {
+  const _ModeSwitch({required this.plot});
+  final bool plot;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ctrl = ref.read(searchControllerProvider.notifier);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.gutter, MfSpace.xs),
+      child: Row(children: [
+        ChoiceChip(
+          label: const Text('По названию'),
+          avatar: const Icon(Icons.title_rounded, size: 18),
+          selected: !plot,
+          showCheckmark: false,
+          onSelected: (_) => ctrl.setPlotMode(false),
+        ),
+        const SizedBox(width: MfSpace.sm),
+        ChoiceChip(
+          label: const Text('По сюжету'),
+          avatar: const Icon(Icons.auto_awesome_rounded, size: 18),
+          selected: plot,
+          showCheckmark: false,
+          onSelected: (_) => ctrl.setPlotMode(true),
+        ),
+      ]),
+    );
+  }
+}
+
+class _PlotTips extends StatelessWidget {
+  const _PlotTips({required this.onPick});
+  final void Function(String) onPick;
+
+  static const _examples = [
+    'школьница переродилась пауком в подземелье',
+    'самый слабый охотник качается в одиночку',
+    'тетрадь: пишешь имя — и человек умирает',
+    'парень попал в другой мир и возвращается во времени после смерти',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.lg, MfSpace.gutter, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Забыли название? Опишите, что помните', style: context.text.titleMedium),
+        const SizedBox(height: MfSpace.sm),
+        Text('Кто герой, где всё происходит, что в истории необычного — на русском или английском. '
+            'Сервер сравнит это с описаниями тайтлов во всех источниках.', style: context.text.bodySmall),
+        const SizedBox(height: MfSpace.lg),
+        Wrap(spacing: MfSpace.sm, runSpacing: MfSpace.sm, children: [
+          for (final e in _examples) ActionChip(label: Text(e), onPressed: () => onPick(e)),
+        ]),
+      ]),
     );
   }
 }

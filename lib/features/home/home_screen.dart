@@ -15,7 +15,7 @@ import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/net_image.dart';
 import '../profile/stats_screen.dart' show statsProvider;
-import 'recommendations.dart';
+import 'for_you.dart';
 import '../../widgets/states.dart';
 
 final sourcesProvider = FutureProvider<List<SourceInfo>>((ref) {
@@ -44,6 +44,7 @@ class HomeScreen extends ConsumerWidget {
           ref.invalidate(sourcesProvider);
           if (current != null) ref.invalidate(homeFeedProvider(current.id));
           ref.invalidate(continueReadingProvider);
+          ref.invalidate(forYouProvider);
           await ref.read(syncEngineProvider).sync();
         },
         child: CustomScrollView(
@@ -82,7 +83,7 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SliverToBoxAdapter(child: _Greeting()),
             const SliverToBoxAdapter(child: _ContinueReading()),
-            const SliverToBoxAdapter(child: RecommendationsSection()),
+            const SliverToBoxAdapter(child: ForYouHomeSection()),
             if (sources.hasError && list.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,

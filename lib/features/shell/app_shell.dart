@@ -35,7 +35,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       });
       // home-screen widget: open the chapter it shows
       HomeWidgetSync.listen((route) {
-        if (mounted) GoRouter.of(context).push(route);
+        if (!mounted) return;
+        route == '/library' ? GoRouter.of(context).go(route) : GoRouter.of(context).push(route);
       });
       unawaited(NetworkStatus.start());
       // a .cbz opened with / shared to MangaFlow → «Получить главы»
@@ -51,6 +52,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       final items = next.valueOrNull;
       if (items != null) unawaited(HomeWidgetSync.update(ref.read(prefsProvider), items.isEmpty ? null : items.first));
     }, fireImmediately: true);
+    ref.listenManual<int>(dataVersionProvider, (_, __) => unawaited(_syncLibraryWidget()), fireImmediately: true);
+  }
+
+  Future<void> _syncLibraryWidget() async {
+    try {
+      final entries = await ref.read(libraryRepositoryProvider).all();
+      await HomeWidgetSync.updateLibrary(ref.read(prefsProvider), entries);
+    } catch (_) {}
   }
 
   @override

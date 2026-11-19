@@ -59,6 +59,13 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/continue_widget_info" />
         </receiver>
+        <!-- Home-screen widget «Библиотека» -->
+        <receiver android:name=".LibraryWidgetProvider" android:exported="false" android:label="Библиотека MangaFlow">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/library_widget_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

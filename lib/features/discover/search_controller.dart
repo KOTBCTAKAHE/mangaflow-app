@@ -8,6 +8,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/providers.dart';
 import '../../data/models/manga.dart';
 import '../../data/remote/catalog_api.dart';
+import '../../data/remote/discover_api.dart';
 
 class SearchState {
   const SearchState({
@@ -21,6 +22,9 @@ class SearchState {
     this.loading = false,
     this.loadingMore = false,
     this.error,
+    this.plot = false,
+    this.plotHits = const [],
+    this.plotIndexed = 0,
   });
 
   final String query;
@@ -36,7 +40,15 @@ class SearchState {
   final bool loadingMore;
   final Object? error;
 
-  bool get isIdle => query.trim().isEmpty && filters.genres.isEmpty;
+  /// «По сюжету»: the query is a description, matched against title plots on the server.
+  final bool plot;
+  final List<PlotHit> plotHits;
+  final int plotIndexed;
+
+  bool get isIdle => plot ? query.trim().length < 3 : query.trim().isEmpty && filters.genres.isEmpty;
+
+  /// Several words with no luck by name — probably a plot description.
+  bool get looksLikePlot => !plot && query.trim().split(RegExp(r'\s+')).length >= 3;
 
   SearchState copyWith({
     String? query,
@@ -49,6 +61,9 @@ class SearchState {
     bool? loading,
     bool? loadingMore,
     Object? Function()? error,
+    bool? plot,
+    List<PlotHit>? plotHits,
+    int? plotIndexed,
   }) =>
       SearchState(
         query: query ?? this.query,
@@ -61,6 +76,9 @@ class SearchState {
         loading: loading ?? this.loading,
         loadingMore: loadingMore ?? this.loadingMore,
         error: error != null ? error() : this.error,
+        plot: plot ?? this.plot,
+        plotHits: plotHits ?? this.plotHits,
+        plotIndexed: plotIndexed ?? this.plotIndexed,
       );
 }
 
@@ -77,16 +95,27 @@ class MangaSearchController extends StateNotifier<SearchState> {
     _debounce?.cancel();
     if (state.isIdle) {
       _cancel?.cancel();
-      state = state.copyWith(items: const [], errors: const [], loading: false, hasNext: false, page: 0, error: () => null);
+      state = state.copyWith(items: const [], plotHits: const [], errors: const [], loading: false, hasNext: false, page: 0,
+          error: () => null);
       return;
     }
-    _debounce = Timer(AppConfig.searchDebounce, () => _run(reset: true));
+    // a plot description is typed slowly: search it on a longer pause (or on «Найти»)
+    _debounce = Timer(state.plot ? const Duration(milliseconds: 1200) : AppConfig.searchDebounce, () => _run(reset: true));
   }
 
   void submit() {
     _debounce?.cancel();
-    if (state.query.trim().isNotEmpty) ref.read(searchHistoryDaoProvider).add(state.query);
+    final incognito = ref.read(settingsProvider).incognito;
+    if (state.query.trim().isNotEmpty && !incognito) ref.read(searchHistoryDaoProvider).add(state.query);
     _run(reset: true);
+  }
+
+  void setPlotMode(bool on) {
+    if (on == state.plot) return;
+    _cancel?.cancel();
+    state = state.copyWith(plot: on, items: const [], plotHits: const [], errors: const [], page: 0, hasNext: false,
+        loading: false, loadingMore: false, error: () => null);
+    if (!state.isIdle) _run(reset: true);
   }
 
   void setFilters(CatalogFilters f) {
@@ -100,7 +129,7 @@ class MangaSearchController extends StateNotifier<SearchState> {
   }
 
   Future<void> loadMore() async {
-    if (!state.hasNext || state.loading || state.loadingMore) return;
+    if (state.plot || !state.hasNext || state.loading || state.loadingMore) return;
     await _run(reset: false);
   }
 
@@ -108,6 +137,7 @@ class MangaSearchController extends StateNotifier<SearchState> {
     if (state.isIdle) return;
     _cancel?.cancel();
     final token = _cancel = CancelToken();
+    if (state.plot) return _runPlot(token);
     final page = reset ? 1 : state.page + 1;
     state = reset
         ? state.copyWith(loading: true, error: () => null, items: const [], errors: const [])
@@ -133,6 +163,22 @@ class MangaSearchController extends StateNotifier<SearchState> {
     } on ApiException catch (e) {
       if (e.code == 'cancelled' || token.isCancelled) return;
       state = state.copyWith(loading: false, loadingMore: false, error: () => e);
+    }
+  }
+
+  Future<void> _runPlot(CancelToken token) async {
+    state = state.copyWith(loading: true, error: () => null, plotHits: const []);
+    try {
+      final r = await ref.read(discoverApiProvider).plotSearch(
+            state.query.trim(),
+            includeNsfw: ref.read(settingsProvider).showNsfw,
+            cancel: token,
+          );
+      if (token.isCancelled || !state.plot) return;
+      state = state.copyWith(plotHits: r.items, plotIndexed: r.indexed, loading: false);
+    } on ApiException catch (e) {
+      if (e.code == 'cancelled' || token.isCancelled) return;
+      state = state.copyWith(loading: false, error: () => e);
     }
   }
 

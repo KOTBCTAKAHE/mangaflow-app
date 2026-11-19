@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/discover/discover_screen.dart';
 import '../features/discover/source_browse_screen.dart';
+import '../features/home/for_you.dart';
 import '../features/home/home_screen.dart';
 import '../features/library/library_screen.dart';
 import '../features/profile/bookmarks_screen.dart';
@@ -34,6 +35,7 @@ abstract final class Routes {
   }
   static String source(String sourceId) => '/source/$sourceId';
   static const receiveWifi = '/receive-wifi';
+  static const forYou = '/for-you';
   static String lookup([String? path]) => Uri(path: '/lookup', queryParameters: path == null ? null : {'path': path}).toString();
   static String importChapters(String path) => Uri(path: '/import', queryParameters: {'path': path}).toString();
 }
@@ -89,6 +91,7 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(path: '/bookmarks', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const BookmarksScreen()),
         GoRoute(path: '/downloads', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const DownloadsScreen()),
         GoRoute(path: '/friends', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const FriendsScreen()),
+        GoRoute(path: Routes.forYou, parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const ForYouScreen()),
         GoRoute(path: '/trackers', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const TrackersScreen()),
         GoRoute(
           path: '/lookup',

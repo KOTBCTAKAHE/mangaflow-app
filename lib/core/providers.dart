@@ -11,6 +11,7 @@ import '../data/models/library.dart';
 import '../data/models/reading.dart';
 import '../data/models/settings.dart';
 import '../data/remote/catalog_api.dart';
+import '../data/remote/discover_api.dart';
 import '../data/remote/social_api.dart';
 import '../data/remote/user_api.dart';
 import '../data/repositories/auth_repository.dart';
@@ -51,6 +52,7 @@ final authProvider = StateNotifierProvider<AuthController, AuthState>(
 final catalogApiProvider = Provider((ref) => CatalogApi(ref.watch(apiClientProvider)));
 final userApiProvider = Provider((ref) => UserApi(ref.watch(apiClientProvider)));
 final socialApiProvider = Provider((ref) => SocialApi(ref.watch(apiClientProvider)));
+final discoverApiProvider = Provider((ref) => DiscoverApi(ref.watch(apiClientProvider)));
 
 // ---------------------------------------------------------------- local data
 final _db = Provider((ref) => ref.watch(databaseProvider).db);
@@ -186,6 +188,7 @@ final readingRepositoryProvider = Provider((ref) => ReadingRepository(
       library: ref.watch(libraryRepositoryProvider),
       titleCache: ref.watch(titleCacheDaoProvider),
       onChanged: () => _changed(ref),
+      incognito: () => ref.read(settingsProvider).incognito,
     ));
 
 final backupServiceProvider = Provider((ref) => BackupService(

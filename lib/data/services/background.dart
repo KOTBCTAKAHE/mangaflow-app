@@ -18,6 +18,7 @@ import '../models/settings.dart';
 import '../remote/catalog_api.dart';
 import '../remote/user_api.dart';
 import '../repositories/auth_repository.dart';
+import 'home_widget_sync.dart';
 import 'notifications.dart';
 
 const kUpdateTask = 'mangaflow.checkUpdates';
@@ -136,6 +137,7 @@ class BackgroundUpdates {
         if (entry != null) await libraryDao.setUnread(u.sourceId, u.mangaId, entry.unreadUpdates + 1);
       }
       await ChapterNotifier.instance.showNewChapters(fresh);
+      if (fresh.isNotEmpty) await HomeWidgetSync.updateLibrary(prefs, await libraryDao.all());
     } finally {
       if (ownDb) await database.close();
     }

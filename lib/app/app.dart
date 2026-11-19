@@ -11,6 +11,7 @@ import '../core/providers.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/tokens.dart';
 import '../data/repositories/auth_repository.dart';
+import '../features/security/app_lock.dart';
 
 class MangaFlowApp extends ConsumerStatefulWidget {
   const MangaFlowApp({super.key, required this.router});
@@ -75,6 +76,8 @@ class _MangaFlowAppState extends ConsumerState<MangaFlowApp> with WidgetsBinding
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       routerConfig: widget.router,
+      // PIN / fingerprint screen above every route
+      builder: (context, child) => AppLockGate(child: child ?? const SizedBox.shrink()),
       locale: const Locale('ru'),
       supportedLocales: const [Locale('ru'), Locale('en')],
       localizationsDelegates: const [

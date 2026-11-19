@@ -65,4 +65,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // AppCompat themes: the fingerprint prompt (local_auth) needs them on Android 8 and below
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

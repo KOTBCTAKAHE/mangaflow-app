@@ -104,6 +104,11 @@ class AppSettings {
     this.panelMode = false,
     this.mobileDataSaver = true,
     this.autoDownloadNew = false,
+    this.incognito = false,
+    this.appLock = false,
+    this.lockBiometrics = true,
+    this.lockTimeoutSec = 60,
+    this.hideInRecents = false,
   });
 
   final String apiBaseUrl;
@@ -158,6 +163,19 @@ class AppSettings {
 
   /// Download new chapters of «Читаю» titles on Wi-Fi while charging.
   final bool autoDownloadNew;
+
+  /// Device-only privacy: no history, progress or search history is written; nothing is synced.
+  final bool incognito;
+
+  /// PIN (stored hashed in secure storage) + optional fingerprint/face to open the app.
+  final bool appLock;
+  final bool lockBiometrics;
+
+  /// Lock again after this long in the background (0 = right away).
+  final int lockTimeoutSec;
+
+  /// Blank preview in «Недавние приложения» (Android 13+; older Android also blocks screenshots).
+  final bool hideInRecents;
   final DateTime updatedAt;
 
   AppSettings copyWith({
@@ -191,6 +209,11 @@ class AppSettings {
     bool? panelMode,
     bool? mobileDataSaver,
     bool? autoDownloadNew,
+    bool? incognito,
+    bool? appLock,
+    bool? lockBiometrics,
+    int? lockTimeoutSec,
+    bool? hideInRecents,
     DateTime? updatedAt,
   }) =>
       AppSettings(
@@ -224,6 +247,11 @@ class AppSettings {
         panelMode: panelMode ?? this.panelMode,
         mobileDataSaver: mobileDataSaver ?? this.mobileDataSaver,
         autoDownloadNew: autoDownloadNew ?? this.autoDownloadNew,
+        incognito: incognito ?? this.incognito,
+        appLock: appLock ?? this.appLock,
+        lockBiometrics: lockBiometrics ?? this.lockBiometrics,
+        lockTimeoutSec: lockTimeoutSec ?? this.lockTimeoutSec,
+        hideInRecents: hideInRecents ?? this.hideInRecents,
         updatedAt: updatedAt ?? DateTime.now().toUtc(),
       );
 
@@ -263,6 +291,12 @@ class AppSettings {
         'api_base_url': apiBaseUrl,
         'reader_brightness': readerBrightness,
         'reader_warmth': readerWarmth,
+        // device-only: never synced to the account
+        'incognito': incognito,
+        'app_lock': appLock,
+        'lock_biometrics': lockBiometrics,
+        'lock_timeout_sec': lockTimeoutSec,
+        'hide_in_recents': hideInRecents,
         'updated_at': updatedAt.toIso8601String(),
       };
 
@@ -300,6 +334,11 @@ class AppSettings {
       panelMode: j['panel_mode'] as bool? ?? false,
       mobileDataSaver: j['mobile_data_saver'] as bool? ?? true,
       autoDownloadNew: j['auto_download_new'] as bool? ?? false,
+      incognito: j['incognito'] as bool? ?? false,
+      appLock: j['app_lock'] as bool? ?? false,
+      lockBiometrics: j['lock_biometrics'] as bool? ?? true,
+      lockTimeoutSec: (j['lock_timeout_sec'] as num?)?.toInt().clamp(0, 3600) ?? 60,
+      hideInRecents: j['hide_in_recents'] as bool? ?? false,
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }

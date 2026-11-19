@@ -22,6 +22,7 @@ import '../discover/filters_sheet.dart' show commonGenres;
 import '../downloads_support.dart';
 import '../library/library_actions.dart' show promptText;
 import '../reader/upscale_settings.dart';
+import '../security/privacy_settings.dart';
 import '../update_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -222,6 +223,10 @@ class SettingsScreen extends ConsumerWidget {
           subtitle: const Text('Батарея, автозапуск и настройки прошивки (Vivo, Xiaomi, Samsung…)'),
           onTap: () => ensureBackgroundAllowed(context, ref, force: true),
         ),
+        const _Header('Приватность'),
+        const PrivacySettings(),
+        const _Header('Виджеты на рабочий стол'),
+        const WidgetSettings(),
         const _Header('Приложение'),
         ListTile(
           leading: const Icon(Icons.system_update_rounded),

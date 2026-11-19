@@ -13,7 +13,13 @@ class ReadingRepository {
     required this.library,
     required this.titleCache,
     required this.onChanged,
+    this.incognito = _never,
   });
+
+  static bool _never() => false;
+
+  /// Incognito: nothing about reading is written (so nothing is synced either).
+  final bool Function() incognito;
 
   final ProgressDao progress;
   final HistoryDao history;
@@ -35,6 +41,7 @@ class ReadingRepository {
     required int pageCount,
     bool? completed,
   }) async {
+    if (incognito()) return;
     final isDone = completed ?? (pageCount > 0 && pageIndex >= pageCount - 1);
     await progress.save(ChapterProgress(
       sourceId: manga.sourceId,
@@ -71,6 +78,7 @@ class ReadingRepository {
     required int activeSeconds,
     required int pagesRead,
   }) async {
+    if (incognito()) return;
     if (activeSeconds < 3 && pagesRead == 0) return; // accidental open
     await history.upsert(HistoryItem(
       id: id,

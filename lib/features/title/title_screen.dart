@@ -22,6 +22,7 @@ import '../../widgets/manga_widgets.dart';
 import '../../widgets/net_image.dart';
 import '../../data/local/bookmarks_dao.dart';
 import 'other_sources.dart';
+import '../home/for_you.dart' show SimilarTitlesSection;
 import '../../widgets/states.dart';
 import '../downloads_support.dart';
 import '../library/library_actions.dart';
@@ -149,6 +150,7 @@ class _Body extends ConsumerWidget {
           currentMax: data.chapters.fold<double?>(null, (a, c) => c.number == null ? a : (a == null || c.number! > a ? c.number : a)),
         ),
       ),
+      SliverToBoxAdapter(child: SimilarTitlesSection(sourceId: m.sourceId, mangaId: m.id, title: m.title)),
     ];
     final chapterSlivers = <Widget>[
       SliverToBoxAdapter(
