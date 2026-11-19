@@ -235,20 +235,35 @@ class RoomInfo {
 }
 
 class LookupMatch {
-  const LookupMatch({required this.title, this.part = '', this.chapterNumber, required this.similarity, this.thumbnail = '', this.isManga = false});
-  final String title, part, thumbnail;
+  const LookupMatch({required this.title, this.part = '', this.chapterNumber, required this.similarity, this.thumbnail = '',
+      this.isManga = false, this.engine = '', this.names = const []});
+  final String title, part, thumbnail, engine;
   final double? chapterNumber;
   final double similarity;
   final bool isManga;
 
+  /// Alternative titles (Russian first when known) — the best query for our sources.
+  final List<String> names;
+  String get searchName => names.isNotEmpty ? names.first : title;
+
   factory LookupMatch.fromJson(Map<String, dynamic> j) => LookupMatch(
         title: j['title'] as String,
+        engine: (j['engine'] as String?) ?? '',
+        names: [for (final n in (j['names'] as List?) ?? const []) n.toString()],
         part: (j['part'] as String?) ?? '',
         chapterNumber: (j['chapter_number'] as num?)?.toDouble(),
         similarity: (j['similarity'] as num).toDouble(),
         thumbnail: (j['thumbnail'] as String?) ?? '',
         isManga: j['is_manga'] as bool? ?? false,
       );
+}
+
+/// One image-search engine's outcome: ok / nothing / no_key / error.
+class LookupEngine {
+  const LookupEngine(this.name, this.status, this.detail);
+  final String name, status, detail;
+  factory LookupEngine.fromJson(Map<String, dynamic> j) =>
+      LookupEngine(j['name'] as String? ?? '', j['status'] as String? ?? '', j['detail'] as String? ?? '');
 }
 
 class SocialApi {
@@ -439,7 +454,7 @@ class SocialApi {
   }
 
   // ------------------------------------------------------------------ lookup
-  Future<({List<LookupMatch> matches, List<MangaCard> results})> lookupImage(Uint8List image, {String contentType = 'image/jpeg'}) async {
+  Future<({List<LookupMatch> matches, List<MangaCard> results, List<LookupEngine> engines})> lookupImage(Uint8List image, {String contentType = 'image/jpeg'}) async {
     try {
       final res = await client.dio.post<dynamic>('/lookup/image',
           data: Stream.fromIterable([image]),
@@ -452,6 +467,7 @@ class SocialApi {
       return (
         matches: [for (final x in _l(m['matches'])) LookupMatch.fromJson(x)],
         results: m['results'] is Map ? parseSearchResults(_m(m['results'])).items : const <MangaCard>[],
+        engines: [for (final x in _l(m['engines'] ?? const [])) LookupEngine.fromJson(x)],
       );
     } on DioException catch (e) {
       throw ApiException.fromDio(e);

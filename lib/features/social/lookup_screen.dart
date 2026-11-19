@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +38,22 @@ String _sniff(Uint8List b) {
   return 'image/jpeg';
 }
 
+/// Cuts the normalized [area] (0..1) out of [bytes] → PNG, longest side ≤1600px.
+Future<Uint8List> cropImage(Uint8List bytes, Rect area) async {
+  final codec = await ui.instantiateImageCodec(bytes);
+  final img = (await codec.getNextFrame()).image;
+  final src = Rect.fromLTRB(area.left * img.width, area.top * img.height, area.right * img.width, area.bottom * img.height);
+  final scale = (1600 / src.longestSide).clamp(0.0, 1.0);
+  final w = (src.width * scale).round().clamp(1, 1600), h = (src.height * scale).round().clamp(1, 1600);
+  final rec = ui.PictureRecorder();
+  Canvas(rec).drawImageRect(img, src, Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..filterQuality = FilterQuality.high);
+  final out = await rec.endRecording().toImage(w, h);
+  final png = await out.toByteData(format: ui.ImageByteFormat.png);
+  img.dispose();
+  out.dispose();
+  return png!.buffer.asUint8List();
+}
+
 /// «Найти по скриншоту»: a page, panel or a TikTok frame → title (+ chapter).
 class LookupScreen extends ConsumerStatefulWidget {
   const LookupScreen({super.key, this.path});
@@ -52,13 +69,19 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
   String? _error;
   List<LookupMatch> _matches = const [];
   List<MangaCard> _results = const [];
+  List<LookupEngine> _engines = const [];
+
+  /// Selected area (normalized) — TikTok UI, captions and borders spoil matching.
+  Rect? _crop;
+  Size? _imageSize;
+  Uint8List? _original;
 
   @override
   void initState() {
     super.initState();
     final p = widget.path;
     if (p != null && p.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async => _run(await File(p).readAsBytes()));
+      WidgetsBinding.instance.addPostFrameCallback((_) async => _load(await File(p).readAsBytes()));
     }
   }
 
@@ -66,7 +89,31 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
     final r = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     final f = r?.files.single;
     final bytes = f?.bytes ?? (f?.path != null ? await File(f!.path!).readAsBytes() : null);
-    if (bytes != null) await _run(bytes);
+    if (bytes != null) await _load(bytes);
+  }
+
+  Future<void> _load(Uint8List bytes) async {
+    _original = bytes;
+    _crop = null;
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final f = await codec.getNextFrame();
+      _imageSize = Size(f.image.width.toDouble(), f.image.height.toDouble());
+      f.image.dispose();
+    } catch (_) {
+      _imageSize = null;
+    }
+    await _run(bytes);
+  }
+
+  Future<void> _searchCrop() async {
+    final o = _original, c = _crop;
+    if (o == null || c == null || c.width < 0.05 || c.height < 0.05) return;
+    try {
+      await _run(await cropImage(o, c), keepPreview: true);
+    } catch (e) {
+      if (mounted) showSnack(context, 'Не удалось вырезать: $e');
+    }
   }
 
   Future<void> _paste() async {
@@ -76,14 +123,15 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
     showSnack(context, text == null ? 'Сохраните скриншот и выберите его из галереи' : 'В буфере текст, а не картинка');
   }
 
-  Future<void> _run(Uint8List bytes) async {
+  Future<void> _run(Uint8List bytes, {bool keepPreview = false}) async {
     if (!ref.read(authProvider.notifier).isSignedIn) {
       setState(() => _error = 'Поиск по картинке работает после входа в аккаунт');
       return;
     }
     setState(() {
-      _image = bytes;
+      if (!keepPreview) _image = bytes;
       _busy = true;
+      _engines = const [];
       _error = null;
       _matches = const [];
       _results = const [];
@@ -96,7 +144,12 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
         _busy = false;
         _matches = r.matches;
         _results = r.results;
-        if (r.matches.isEmpty) _error = 'Ничего похожего не нашлось. Лучше всего работает чистая страница манги без обрезки.';
+        _engines = r.engines;
+        if (r.matches.isEmpty) {
+          _error = _crop == null
+              ? 'Ничего не нашлось. Выделите пальцем только рисунок (без подписей и интерфейса ТикТока) и нажмите «Искать в выделенном».'
+              : 'В выделенном тоже ничего. Попробуйте другой кадр или страницу целиком без надписей.';
+        }
       });
     } catch (e) {
       if (mounted) setState(() {
@@ -130,12 +183,30 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
               textAlign: TextAlign.center, style: context.text.bodyMedium),
           const SizedBox(height: MfSpace.xl),
         ] else
-          ClipRRect(
-            borderRadius: BorderRadius.circular(MfRadius.md),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 260),
-              child: Image.memory(_image!, fit: BoxFit.contain, cacheWidth: 800),
-            ),
+          _CropPreview(
+            image: _image!,
+            size: _imageSize,
+            crop: _crop,
+            enabled: !_busy,
+            onChanged: (r) => setState(() => _crop = r),
+          ),
+        if (_image != null && _imageSize != null)
+          Padding(
+            padding: const EdgeInsets.only(top: MfSpace.xs),
+            child: Row(children: [
+              Expanded(
+                child: Text(_crop == null ? 'Проведите пальцем по картинке, чтобы выделить только рисунок' : 'Выделено',
+                    style: context.text.bodySmall),
+              ),
+              if (_crop != null) ...[
+                TextButton(onPressed: _busy ? null : () => setState(() => _crop = null), child: const Text('Сбросить')),
+                FilledButton.tonalIcon(
+                  onPressed: _busy ? null : _searchCrop,
+                  icon: const Icon(Icons.crop_rounded),
+                  label: const Text('Искать в выделенном'),
+                ),
+              ],
+            ]),
           ),
         const SizedBox(height: MfSpace.md),
         Row(children: [
@@ -158,6 +229,32 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
           Text('Ищу среди миллионов страниц…', textAlign: TextAlign.center, style: context.text.bodySmall),
         ],
         if (_error != null) Padding(padding: const EdgeInsets.only(top: MfSpace.lg), child: Text(_error!, textAlign: TextAlign.center)),
+        if (_engines.isNotEmpty && (best == null || _engines.any((e) => e.status == 'no_key' || e.status == 'error')))
+          Padding(
+            padding: const EdgeInsets.only(top: MfSpace.md),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: MfSpace.xs),
+                child: Column(children: [
+                  for (final e in _engines)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(switch (e.status) {
+                        'ok' => Icons.check_circle_rounded,
+                        'nothing' => Icons.remove_circle_outline_rounded,
+                        'no_key' => Icons.key_off_rounded,
+                        _ => Icons.error_outline_rounded,
+                      }),
+                      title: Text(e.name),
+                      subtitle: Text(switch (e.status) {
+                        'nothing' => 'совпадений нет',
+                        _ => e.detail,
+                      }),
+                    ),
+                ]),
+              ),
+            ),
+          ),
         if (best != null) ...[
           const SizedBox(height: MfSpace.lg),
           Card(
@@ -165,8 +262,10 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
               leading: const Icon(Icons.auto_awesome_rounded),
               title: Text(best.title, style: context.text.titleMedium),
               subtitle: Text([
+                if (best.searchName != best.title) best.searchName,
                 if (best.part.isNotEmpty) best.part,
                 'совпадение ${best.similarity.round()}%',
+                if (best.engine.isNotEmpty) best.engine,
               ].join(' · ')),
             ),
           ),
@@ -187,7 +286,7 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
               ),
           ] else
             OutlinedButton.icon(
-              onPressed: () => _searchTitle(best.title),
+              onPressed: () => _searchTitle(best.searchName),
               icon: const Icon(Icons.search_rounded),
               label: const Text('Искать по названию'),
             ),
@@ -199,13 +298,107 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
             for (final m in _matches.skip(1))
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(m.title),
-                subtitle: Text('${m.part.isEmpty ? '' : '${m.part} · '}${m.similarity.round()}%'),
-                onTap: () => _searchTitle(m.title),
+                title: Text(m.searchName),
+                subtitle: Text([
+                  if (m.searchName != m.title) m.title,
+                  if (m.part.isNotEmpty) m.part,
+                  '${m.similarity.round()}%',
+                  if (m.engine.isNotEmpty) m.engine,
+                ].join(' · ')),
+                trailing: const Icon(Icons.search_rounded),
+                onTap: () => _searchTitle(m.searchName),
               ),
           ],
         ],
       ]),
     );
   }
+}
+
+/// Image preview where a finger drag draws the area to search in.
+class _CropPreview extends StatefulWidget {
+  const _CropPreview({required this.image, required this.size, required this.crop, required this.enabled, required this.onChanged});
+  final Uint8List image;
+  final Size? size;
+  final Rect? crop;
+  final bool enabled;
+  final ValueChanged<Rect?> onChanged;
+
+  @override
+  State<_CropPreview> createState() => _CropPreviewState();
+}
+
+class _CropPreviewState extends State<_CropPreview> {
+  Offset? _start;
+
+  @override
+  Widget build(BuildContext context) {
+    final sz = widget.size, image = widget.image, crop = widget.crop, enabled = widget.enabled;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(MfRadius.md),
+      child: LayoutBuilder(builder: (context, c) {
+        if (sz == null || sz.isEmpty) {
+          return ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: Image.memory(image, fit: BoxFit.contain, cacheWidth: 900),
+          );
+        }
+        // fit the image into width × 380 keeping its aspect
+        final scale = [c.maxWidth / sz.width, 380 / sz.height].reduce((a, b) => a < b ? a : b);
+        final w = sz.width * scale, h = sz.height * scale;
+        Offset norm(Offset p) => Offset((p.dx / w).clamp(0.0, 1.0), (p.dy / h).clamp(0.0, 1.0));
+        return Center(
+          child: SizedBox(
+            width: w,
+            height: h,
+            // the drag must beat the list's scroll: claim the pointer eagerly, read raw positions
+            child: RawGestureDetector(
+              gestures: {
+                if (enabled)
+                  EagerGestureRecognizer: GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(EagerGestureRecognizer.new, (_) {}),
+              },
+              child: Listener(
+              onPointerDown: enabled ? (e) => _start = norm(e.localPosition) : null,
+              onPointerMove: enabled
+                  ? (e) {
+                      final s0 = _start;
+                      if (s0 != null) widget.onChanged(Rect.fromPoints(s0, norm(e.localPosition)));
+                    }
+                  : null,
+              onPointerUp: (_) => _start = null,
+              child: Stack(fit: StackFit.expand, children: [
+                Image.memory(image, fit: BoxFit.fill, cacheWidth: 900),
+                if (crop != null)
+                  CustomPaint(painter: _CropPainter(crop, Theme.of(context).colorScheme.primary)),
+              ]),
+            ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _CropPainter extends CustomPainter {
+  _CropPainter(this.area, this.color);
+  final Rect area;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = Rect.fromLTRB(area.left * size.width, area.top * size.height, area.right * size.width, area.bottom * size.height);
+    final shade = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRect(r);
+    canvas.drawPath(shade, Paint()..color = Colors.black.withValues(alpha: 0.55));
+    canvas.drawRect(r, Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2);
+  }
+
+  @override
+  bool shouldRepaint(_CropPainter old) => old.area != area || old.color != color;
 }
