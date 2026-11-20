@@ -457,8 +457,8 @@ List<Rect> detectPanels(Uint8List gray, int w, int h, {bool rtl = true}) {
 }
 
 int _inter(_R a, _R b) {
-  final iw = math.min(a.x1, b.x1) - math.max(a.x0, b.x0);
-  final ih = math.min(a.y1, b.y1) - math.max(a.y0, b.y0);
+  final iw = math.min<int>(a.x1, b.x1) - math.max<int>(a.x0, b.x0);
+  final ih = math.min<int>(a.y1, b.y1) - math.max<int>(a.y0, b.y0);
   return iw > 0 && ih > 0 ? iw * ih : 0;
 }
 
