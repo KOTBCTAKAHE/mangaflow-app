@@ -54,6 +54,30 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
         handleIncoming(intent)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/ota").setMethodCallHandler { call, result ->
+            fun bg(work: () -> Any?) = Thread {
+                try {
+                    val v = work()
+                    runOnUiThread { result.success(v) }
+                } catch (e: Throwable) {
+                    runOnUiThread { result.error("ota_failed", e.message ?: e.javaClass.simpleName, null) }
+                }
+            }.start()
+            when (call.method) {
+                "installedApk" -> bg {
+                    val f = File(applicationInfo.sourceDir)
+                    mapOf("path" to f.absolutePath, "size" to f.length(), "sha256" to OtaUpdater.sha256(f))
+                }
+                "apply" -> bg {
+                    val out = File(call.argument<String>("out")!!)
+                    OtaUpdater.apply(File(applicationInfo.sourceDir), File(call.argument<String>("patch")!!), out)
+                    OtaUpdater.sha256(out)
+                }
+                "sha256" -> bg { OtaUpdater.sha256(File(call.argument<String>("path")!!)) }
+                "install" -> result.success(installApk(File(call.argument<String>("path")!!)))
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/gallery").setMethodCallHandler { call, result ->
             when (call.method) {
                 "needsPermission" -> result.success(Build.VERSION.SDK_INT < 29 &&
@@ -108,6 +132,21 @@ class MainActivity : FlutterFragmentActivity() {
         super.onNewIntent(intent)
         intent.getStringExtra(ContinueWidgetProvider.EXTRA_ROUTE)?.let { widgetChannel?.invokeMethod("open", it) }
         handleIncoming(intent)
+    }
+
+    /** "started" | "permission" (the user must allow installs from MangaFlow first). */
+    private fun installApk(apk: File): String {
+        if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+            startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return "permission"
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.ota", apk)
+        startActivity(Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+        return "started"
     }
 
     /** Pictures/MangaFlow. Android 10+: MediaStore (no permission); older: the public folder + media scan. */

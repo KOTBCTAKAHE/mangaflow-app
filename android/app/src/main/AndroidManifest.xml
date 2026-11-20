@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -95,6 +96,11 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/library_widget_info" />
         </receiver>
+        <!-- OTA: the package installer reads the rebuilt APK from cache/ota -->
+        <provider android:name=".OtaFileProvider" android:authorities="${applicationId}.ota"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/ota_paths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

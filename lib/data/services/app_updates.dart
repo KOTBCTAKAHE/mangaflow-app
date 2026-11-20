@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -5,9 +6,19 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/config.dart';
 import '../local/daos.dart';
+import 'ota.dart';
+
+/// A delta from the installed APK to the new one (MFDELTA1, built in CI).
+class OtaPatch {
+  const OtaPatch({required this.url, required this.name, required this.size, required this.sha256, required this.toSha256});
+  final String url, name, sha256, toSha256;
+  final int size;
+}
 
 class AppRelease {
   const AppRelease({
+    this.patch,
+    this.apkSha256,
     required this.version,
     required this.tag,
     required this.notes,
@@ -24,6 +35,10 @@ class AppRelease {
   final String? apkUrl;
   final String? apkName;
   final int apkSize;
+  final String? apkSha256;
+
+  /// Small update: present when the installed APK is one CI made a patch from.
+  final OtaPatch? patch;
 }
 
 /// Checks GitHub Releases of the app repository for a newer version.
@@ -62,8 +77,16 @@ class AppUpdater {
     if (!manual && await kv.get(_skippedKey) == latest) return null;
 
     final assets = [for (final a in data['assets'] as List? ?? const []) (a as Map).cast<String, dynamic>()];
-    final asset = pickAsset(assets, Platform.version);
+    var asset = pickAsset(assets, Platform.version);
+    final (patch, apkSha) = await _ota(assets);
+    if (patch != null) {
+      // the patch decides the ABI (the one actually installed); its full APK is the fallback
+      final abi = RegExp(r'-([a-z0-9]+)\.mfdelta$').firstMatch(patch.name)?.group(1);
+      asset = assets.where((a) => (a['name'] as String? ?? '') == 'MangaFlow-$tag-$abi.apk').firstOrNull ?? asset;
+    }
     return AppRelease(
+      patch: patch,
+      apkSha256: apkSha[asset?['name']],
       version: latest,
       tag: tag,
       notes: (data['body'] as String? ?? '').trim(),
@@ -75,6 +98,31 @@ class AppUpdater {
   }
 
   Future<void> skip(String version) => kv.set(_skippedKey, version);
+
+  /// ota.json of the release → the patch for the installed APK (by its SHA-256) + APK hashes.
+  Future<(OtaPatch?, Map<String, String>)> _ota(List<Map<String, dynamic>> assets) async {
+    final m = assets.where((a) => a['name'] == 'ota.json').firstOrNull;
+    if (m == null) return (null, const <String, String>{});
+    try {
+      final res = await _http.get<String>(m['browser_download_url'] as String,
+          options: Options(responseType: ResponseType.plain, headers: {'Accept': 'application/octet-stream'}));
+      final j = jsonDecode(res.data!) as Map<String, dynamic>;
+      final hashes = {for (final a in (j['apks'] as List? ?? const [])) (a as Map)['name'] as String: a['sha256'] as String};
+      final me = await Ota.installed();
+      if (me == null) return (null, hashes);
+      final p = (j['patches'] as List? ?? const []).cast<Map>().where((p) => p['from_sha256'] == me.sha256).firstOrNull;
+      if (p == null) return (null, hashes);
+      final url = assets.where((a) => a['name'] == p['name']).firstOrNull?['browser_download_url'] as String?;
+      if (url == null) return (null, hashes);
+      return (
+        OtaPatch(url: url, name: p['name'] as String, size: (p['size'] as num).toInt(), sha256: p['sha256'] as String,
+            toSha256: p['to_sha256'] as String),
+        hashes,
+      );
+    } catch (_) {
+      return (null, const <String, String>{});
+    }
+  }
 
   /// arm64 / armv7 / universal by the running VM's ABI (`Platform.version` ends with `on "android_arm64"`).
   static Map<String, dynamic>? pickAsset(List<Map<String, dynamic>> assets, String platformVersion) {

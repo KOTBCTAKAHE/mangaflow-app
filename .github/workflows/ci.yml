@@ -127,6 +127,13 @@ jobs:
             !ios/Pods
           if-no-files-found: ignore
 
+      # OTA: small delta patches from the last releases (the app rebuilds the APK from the installed one)
+      - name: OTA delta patches
+        if: github.ref == 'refs/heads/main' && steps.ver.outputs.exists == 'false' && steps.key.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pip install bsdiff4 && python3 tool/make_patches.py "${{ steps.ver.outputs.tag }}" release && ls -la release
+
       # Bump `version:` in pubspec.yaml and push to main → a new release is published automatically.
       - name: Release notes from CHANGELOG.md
         if: github.ref == 'refs/heads/main' && steps.ver.outputs.exists == 'false' && steps.key.outputs.ok == 'true'
@@ -143,3 +150,5 @@ jobs:
           body_path: ${{ runner.temp }}/notes.md
           files: |
             release/*.apk
+            release/*.mfdelta
+            release/ota.json

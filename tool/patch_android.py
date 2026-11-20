@@ -31,6 +31,7 @@ def patch_manifest() -> None:
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
     ]
     for p in perms:
         if p not in text:
@@ -112,6 +113,15 @@ def patch_manifest() -> None:
             '        </receiver>\n'
         )
         text = text.replace("    </application>", widget + "    </application>", 1)
+    if "OtaFileProvider" not in text:
+        provider = (
+            '        <!-- OTA: the package installer reads the rebuilt APK from cache/ota -->\n'
+            '        <provider android:name=".OtaFileProvider" android:authorities="${applicationId}.ota"\n'
+            '            android:exported="false" android:grantUriPermissions="true">\n'
+            '            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/ota_paths" />\n'
+            '        </provider>\n'
+        )
+        text = text.replace("    </application>", provider + "    </application>", 1)
     if "LibraryWidgetProvider" not in text:
         widget = (
             '        <!-- Home-screen widget «Библиотека» -->\n'
