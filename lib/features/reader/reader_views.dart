@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
+import '../../data/models/settings.dart';
 import '../title/other_sources.dart';
 import 'reader_controller.dart';
 import 'reader_page_image.dart';
@@ -423,6 +424,18 @@ class _PagedReaderState extends State<PagedReader> {
 
   /// «По кадрам» is for single pages (spreads are already small).
   bool get _panels => c.settings().panelMode && !_double;
+
+  /// Panel order follows the comic, not the page-turn direction: Japanese manga is read
+  /// right to left even when the user turns pages left to right.
+  bool get _panelRtl => switch (c.settings().panelOrder) {
+        PanelOrder.rtl => true,
+        PanelOrder.ltr => false,
+        PanelOrder.auto => c.mode.isRtl ||
+            switch (c.manga?.kind) {
+              MangaKind.manhwa || MangaKind.manhua || MangaKind.comic => false,
+              _ => true,
+            },
+      };
   int _anchorVersion = -1;
   bool _zoomed = false;
   bool _autoAdvancing = false;
@@ -467,12 +480,14 @@ class _PagedReaderState extends State<PagedReader> {
     if (pc == null || !pc.hasClients) return;
     final current = pc.page?.round() ?? 0;
     if (_panels && (_pageKeys[current]?.currentState?.stepPanel(delta) ?? false)) return;
-    _enterAtEnd = delta < 0;
     final target = current + delta;
     if (target < 0) {
       c.goPrevChapter();
       return;
     }
+    // going back lands on the previous page's last panel, forward on the next page's first
+    if (_panels) _pageKeys[target]?.currentState?.enter(atEnd: delta < 0);
+    _enterAtEnd = delta < 0;
     pc.animateToPage(target, duration: MfMotion.base, curve: MfMotion.standard);
   }
 
@@ -512,6 +527,7 @@ class _PagedReaderState extends State<PagedReader> {
           physics: _zoomed ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
           itemCount: spreads.length + 1,
           onPageChanged: (i) {
+            _enterAtEnd = false;
             if (i >= spreads.length) {
               if (c.settings().autoNextChapter && c.nextChapter != null && !_autoAdvancing) {
                 _autoAdvancing = true;
@@ -527,13 +543,15 @@ class _PagedReaderState extends State<PagedReader> {
             final pages = [for (final p in spreads[i]) seg.pages[p]];
             final ordered = rtl ? pages.reversed.toList() : pages;
             final panelPage = _panels && pages.length == 1 ? pages.first : null;
-            final startAtEnd = _enterAtEnd;
-            _enterAtEnd = false;
+            // only the page being turned to may start at its last panel (neighbours are built too)
+            final startAtEnd = _enterAtEnd && i == (_pc!.hasClients ? (_pc!.page ?? 0).round() : -1) - 1;
             return _ZoomablePage(
               key: panelPage == null ? null : _pageKeys.putIfAbsent(i, GlobalKey<_ZoomablePageState>.new),
               panelPage: panelPage,
-              rtl: rtl,
+              rtl: _panelRtl,
+              pagingRtl: rtl,
               startAtEnd: startAtEnd,
+              onSwipe: _go,
               onZoomChanged: (z) {
                 if (z != _zoomed) setState(() => _zoomed = z);
               },
@@ -561,9 +579,17 @@ class _ZoomablePage extends StatefulWidget {
     this.panelPage,
     this.rtl = false,
     this.startAtEnd = false,
+    this.onSwipe,
+    this.pagingRtl = false,
   });
+
+  /// Page-turn direction: a swipe to the next panel goes the same way as to the next page.
+  final bool pagingRtl;
   final Widget child;
   final ValueChanged<bool> onZoomChanged;
+
+  /// «По кадрам»: a swipe means next (+1) / previous (−1) panel.
+  final ValueChanged<int>? onSwipe;
 
   /// «По кадрам»: the page whose panels to step through (null = plain zoom).
   final PageRef? panelPage;
@@ -585,6 +611,7 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
 
   PanelLayout? _layout;
   int _panel = -1; // -1: whole page
+  Offset? _swipeStart, _swipeLast;
 
   @override
   void initState() {
@@ -602,12 +629,32 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
     });
     final p = widget.panelPage;
     if (p != null) {
+      _wantEnd = widget.startAtEnd;
       unawaited(PanelDetector.layout('${p.localPath ?? p.url}|${widget.rtl}', pageImageProvider(p), rtl: widget.rtl).then((l) {
         if (!mounted || l == null) return;
         _layout = l;
-        if (!l.isSingle) _showPanel(widget.startAtEnd ? l.panels.length - 1 : 0, animate: false);
+        // a cached layout arrives synchronously, before the first layout pass: wait for a size
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || l.isSingle) return;
+          if (_panel < 0 || _panelPending) _showPanel(_wantEnd ? l.panels.length - 1 : 0, animate: false);
+          _panelPending = false;
+        });
       }));
     }
+  }
+
+  bool _wantEnd = false;
+  bool _panelPending = true;
+
+  /// The reader is about to turn to this page: show its first (or last) panel.
+  void enter({required bool atEnd}) {
+    _wantEnd = atEnd;
+    final l = _layout;
+    if (l == null || l.isSingle) {
+      _panelPending = true;
+      return;
+    }
+    _showPanel(atEnd ? l.panels.length - 1 : 0, animate: false);
   }
 
   void _animateTo(Matrix4 end, {bool animate = true}) {
@@ -663,11 +710,35 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
 
   @override
   Widget build(BuildContext context) {
+    final panels = _layout != null && !_layout!.isSingle && _panel >= 0;
     final viewer = InteractiveViewer(
       transformationController: _t,
       minScale: 1,
       maxScale: 5,
-      panEnabled: _zoomed,
+      // on a panel one-finger drags are swipes between panels; pinch still zooms
+      panEnabled: _zoomed && !panels,
+      onInteractionStart: (d) {
+        _swipeStart = d.pointerCount == 1 ? d.focalPoint : null;
+        _swipeLast = d.focalPoint;
+      },
+      onInteractionUpdate: (d) {
+        if (d.pointerCount > 1) _swipeStart = null;
+        _swipeLast = d.focalPoint;
+      },
+      onInteractionEnd: (d) {
+        final start = _swipeStart, last = _swipeLast;
+        _swipeStart = null;
+        if (!panels || start == null || last == null || widget.onSwipe == null) return;
+        final delta = last - start;
+        final v = d.velocity.pixelsPerSecond;
+        final horizontal = delta.dx.abs() > delta.dy.abs();
+        final dist = horizontal ? delta.dx : delta.dy;
+        final speed = horizontal ? v.dx : v.dy;
+        if (dist.abs() < 40 && speed.abs() < 350) return;
+        // swipe left / up → forward (for right-to-left reading: swipe right → forward)
+        final forward = horizontal ? (widget.pagingRtl ? dist > 0 : dist < 0) : dist < 0;
+        widget.onSwipe!(forward ? 1 : -1);
+      },
       child: SizedBox.expand(child: widget.child),
     );
     final bg = context.findAncestorWidgetOfExactType<Scaffold>()?.backgroundColor ?? Colors.black;

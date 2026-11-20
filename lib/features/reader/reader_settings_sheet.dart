@@ -114,6 +114,31 @@ class _ReaderSettings extends ConsumerWidget {
                 ),
             ]),
           ),
+          _h(context, 'По кадрам'),
+          SwitchListTile(
+            title: const Text('Читать по кадрам'),
+            subtitle: const Text('В режиме страниц: тап по краю или свайп — следующий кадр, двойной тап — вся страница'),
+            value: s.panelMode,
+            onChanged: (v) => ctrl.update((x) => x.copyWith(panelMode: v)),
+          ),
+          if (s.panelMode)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.gutter, MfSpace.sm),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Порядок кадров · «Авто»: манга справа налево, манхва и комиксы слева направо',
+                    style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: MfSpace.xs),
+                Wrap(spacing: MfSpace.sm, children: [
+                  for (final o in PanelOrder.values)
+                    ChoiceChip(
+                      label: Text(o.label),
+                      selected: s.panelOrder == o,
+                      showCheckmark: false,
+                      onSelected: (_) => ctrl.update((x) => x.copyWith(panelOrder: o)),
+                    ),
+                ]),
+              ]),
+            ),
           _h(context, 'Поведение'),
           SwitchListTile(
             title: const Text('Зоны касания для листания'),

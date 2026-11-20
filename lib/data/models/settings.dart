@@ -54,6 +54,19 @@ enum UpscaleQuality {
   static UpscaleQuality parse(String? v) => values.firstWhere((x) => x.api == v, orElse: () => UpscaleQuality.fast);
 }
 
+/// «По кадрам»: in which order panels are read.
+enum PanelOrder {
+  auto('auto', 'Авто'),
+  rtl('rtl', 'Справа налево'),
+  ltr('ltr', 'Слева направо');
+
+  const PanelOrder(this.api, this.label);
+  final String api;
+  final String label;
+
+  static PanelOrder parse(String? v) => values.firstWhere((o) => o.api == v, orElse: () => PanelOrder.auto);
+}
+
 enum ReaderBackground {
   black('black', 'Чёрный'),
   gray('gray', 'Графит'),
@@ -102,6 +115,7 @@ class AppSettings {
     this.upscaleQuality = UpscaleQuality.fast,
     this.upscaleDownloads = true,
     this.panelMode = false,
+    this.panelOrder = PanelOrder.auto,
     this.mobileDataSaver = true,
     this.autoDownloadNew = false,
     this.incognito = false,
@@ -158,6 +172,9 @@ class AppSettings {
   /// Paged reader: zoom from panel to panel («по кадрам»).
   final bool panelMode;
 
+  /// auto: manga right-to-left, manhwa / manhua / comics left-to-right.
+  final PanelOrder panelOrder;
+
   /// On mobile data load pages at 720px (AI upscaling on the phone restores sharpness).
   final bool mobileDataSaver;
 
@@ -207,6 +224,7 @@ class AppSettings {
     UpscaleQuality? upscaleQuality,
     bool? upscaleDownloads,
     bool? panelMode,
+    PanelOrder? panelOrder,
     bool? mobileDataSaver,
     bool? autoDownloadNew,
     bool? incognito,
@@ -245,6 +263,7 @@ class AppSettings {
         upscaleQuality: upscaleQuality ?? this.upscaleQuality,
         upscaleDownloads: upscaleDownloads ?? this.upscaleDownloads,
         panelMode: panelMode ?? this.panelMode,
+        panelOrder: panelOrder ?? this.panelOrder,
         mobileDataSaver: mobileDataSaver ?? this.mobileDataSaver,
         autoDownloadNew: autoDownloadNew ?? this.autoDownloadNew,
         incognito: incognito ?? this.incognito,
@@ -282,6 +301,7 @@ class AppSettings {
         'upscale_quality': upscaleQuality.api,
         'upscale_downloads': upscaleDownloads,
         'panel_mode': panelMode,
+        'panel_order': panelOrder.api,
         'mobile_data_saver': mobileDataSaver,
         'auto_download_new': autoDownloadNew,
       };
@@ -332,6 +352,7 @@ class AppSettings {
       upscaleQuality: UpscaleQuality.parse(j['upscale_quality'] as String?),
       upscaleDownloads: j['upscale_downloads'] as bool? ?? true,
       panelMode: j['panel_mode'] as bool? ?? false,
+      panelOrder: PanelOrder.parse(j['panel_order'] as String?),
       mobileDataSaver: j['mobile_data_saver'] as bool? ?? true,
       autoDownloadNew: j['auto_download_new'] as bool? ?? false,
       incognito: j['incognito'] as bool? ?? false,

@@ -90,6 +90,41 @@ void main() {
     expect(detectPanels(cream, w, h).length, 6);
   });
 
+  test('panels: a bubble over a gutter, touching panels whose shared frame a bubble interrupts', () {
+    const w = 600, h = 880;
+    final g = Uint8List(w * h)..fillRange(0, w * h, 250);
+    void panel(int x0, int y0, int x1, int y1) {
+      for (var y = y0; y < y1; y++) {
+        for (var x = x0; x < x1; x++) {
+          final frame = y < y0 + 3 || y >= y1 - 3 || x < x0 + 3 || x >= x1 - 3;
+          g[y * w + x] = frame ? 10 : (((x ~/ 7) * 3 + (y ~/ 5) * 5) % 7 < 3 ? 30 : 240);
+        }
+      }
+    }
+
+    void bubble(int cx, int cy, int rx, int ry) {
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          final e = ((x - cx) / rx) * ((x - cx) / rx) + ((y - cy) / ry) * ((y - cy) / ry);
+          if (e <= 1) g[y * w + x] = e >= 0.88 ? 10 : 250;
+        }
+      }
+    }
+
+    panel(10, 10, 295, 300); // top row, a white gutter between and below
+    panel(305, 10, 590, 300);
+    panel(10, 312, 590, 600); // two panels whose frames touch: one 6-px line
+    panel(10, 597, 590, 870);
+    bubble(300, 306, 120, 45); // hides 40 % of the gutter under the top row
+    bubble(300, 599, 38, 40); // breaks the shared frame line
+    final p = detectPanels(g, w, h, rtl: true);
+    expect(p.length, 4);
+    expect(p[0].left, greaterThan(0.5), reason: 'top-right first');
+    expect(p[1].right, lessThan(0.5));
+    expect([p[2].top, p[2].bottom], [closeTo(0.355, 0.01), closeTo(0.678, 0.01)]);
+    expect([p[3].top, p[3].bottom], [closeTo(0.682, 0.01), closeTo(0.989, 0.01)]);
+  });
+
   test('panel matrix centres and fits the panel', () {
     final m = panelMatrix(const Rect.fromLTRB(0.5, 0, 1, 0.5), 2 / 3, const Size(400, 600));
     final s = m.getMaxScaleOnAxis();
