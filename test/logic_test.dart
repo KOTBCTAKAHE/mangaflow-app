@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangaflow/core/config.dart';
 import 'package:mangaflow/core/network/api_exception.dart';
+import 'package:mangaflow/core/network/proxy.dart';
 import 'package:mangaflow/core/utils/format.dart';
 import 'package:mangaflow/data/models/library.dart';
 import 'package:mangaflow/data/models/manga.dart';
@@ -91,14 +93,20 @@ void main() {
   group('models', () {
     test('settings round-trip and remote merge keeps device-only keys', () {
       final s = AppSettings(apiBaseUrl: 'https://my.server', updatedAt: DateTime.utc(2026), readerBrightness: 0.5)
-          .copyWith(showNsfw: true, defaultReadingMode: () => ReadingMode.pagedRtl);
+          .copyWith(
+              showNsfw: true,
+              defaultReadingMode: () => ReadingMode.pagedRtl,
+              proxy: const ProxyConfig(type: ProxyType.socks5, host: '10.0.0.2', port: 1080));
       final back = AppSettings.fromJson(s.toJson(), fallbackUrl: 'x');
-      expect(back.apiBaseUrl, 'https://my.server');
+      expect(back.apiBaseUrl, AppConfig.defaultApiBaseUrl, reason: 'custom servers are gone');
+      expect(back.proxy.port, 1080);
       expect(back.showNsfw, isTrue);
       expect(back.defaultReadingMode, ReadingMode.pagedRtl);
       final merged = back.mergeRemote({'show_nsfw': false, 'api_base_url': 'evil'}, DateTime.utc(2027));
       expect(merged.showNsfw, isFalse);
-      expect(merged.apiBaseUrl, 'https://my.server');
+      expect(merged.apiBaseUrl, AppConfig.defaultApiBaseUrl);
+      expect(merged.proxy.host, '10.0.0.2', reason: 'the proxy is device-only');
+      expect(s.toSyncJson().containsKey('proxy'), isFalse);
       expect(merged.readerBrightness, 0.5);
       expect(merged.updatedAt, DateTime.utc(2027));
     });
