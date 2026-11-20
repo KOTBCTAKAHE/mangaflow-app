@@ -8,6 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
 import '../../data/models/settings.dart';
+import '../../widgets/states.dart';
 import '../title/other_sources.dart';
 import 'reader_controller.dart';
 import 'reader_page_image.dart';
@@ -475,18 +476,29 @@ class _PagedReaderState extends State<PagedReader> {
     super.dispose();
   }
 
+  bool _stripHinted = false;
+
+  /// A webtoon strip opened in page mode: it now scrolls inside the page; suggest the strip mode once.
+  void _hintStrip() {
+    if (_stripHinted || !mounted) return;
+    _stripHinted = true;
+    showSnack(context, 'Это вертикальная лента: листайте вниз. Удобнее в режиме «Вертикальная лента»',
+        action: 'Включить', onAction: () => c.setMode(ReadingMode.vertical));
+  }
+
   void _go(int delta) {
     final pc = _pc;
     if (pc == null || !pc.hasClients) return;
     final current = pc.page?.round() ?? 0;
-    if (_panels && (_pageKeys[current]?.currentState?.stepPanel(delta) ?? false)) return;
+    // a tall strip scrolls first, «по кадрам» steps panels; only then the page turns
+    if (_pageKeys[current]?.currentState?.stepWithin(delta) ?? false) return;
     final target = current + delta;
     if (target < 0) {
       c.goPrevChapter();
       return;
     }
     // going back lands on the previous page's last panel, forward on the next page's first
-    if (_panels) _pageKeys[target]?.currentState?.enter(atEnd: delta < 0);
+    _pageKeys[target]?.currentState?.enter(atEnd: delta < 0);
     _enterAtEnd = delta < 0;
     pc.animateToPage(target, duration: MfMotion.base, curve: MfMotion.standard);
   }
@@ -545,9 +557,16 @@ class _PagedReaderState extends State<PagedReader> {
             final panelPage = _panels && pages.length == 1 ? pages.first : null;
             // only the page being turned to may start at its last panel (neighbours are built too)
             final startAtEnd = _enterAtEnd && i == (_pc!.hasClients ? (_pc!.page ?? 0).round() : -1) - 1;
+            final single = pages.length == 1 ? pages.first : null;
             return _ZoomablePage(
-              key: panelPage == null ? null : _pageKeys.putIfAbsent(i, GlobalKey<_ZoomablePageState>.new),
+              key: single == null ? null : _pageKeys.putIfAbsent(i, GlobalKey<_ZoomablePageState>.new),
               panelPage: panelPage,
+              single: single,
+              cacheWidth: _cacheWidth(context),
+              stripChild: single == null
+                  ? null
+                  : ReaderPageImage(page: single, upscaler: c.upscaler, fit: BoxFit.fitWidth, cacheWidth: _cacheWidth(context)),
+              onTall: _hintStrip,
               rtl: _panelRtl,
               pagingRtl: rtl,
               startAtEnd: startAtEnd,
@@ -581,7 +600,18 @@ class _ZoomablePage extends StatefulWidget {
     this.startAtEnd = false,
     this.onSwipe,
     this.pagingRtl = false,
+    this.single,
+    this.stripChild,
+    this.cacheWidth = 0,
+    this.onTall,
   });
+
+  /// The page when the spread shows one: a very tall one (webtoon strip) is shown full-width
+  /// and scrolls vertically inside the page instead of shrinking to a sliver.
+  final PageRef? single;
+  final Widget? stripChild;
+  final int cacheWidth;
+  final VoidCallback? onTall;
 
   /// Page-turn direction: a swipe to the next panel goes the same way as to the next page.
   final bool pagingRtl;
@@ -627,15 +657,18 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
       final t = _tween;
       if (t != null) _t.value = t.value;
     });
+    _wantEnd = widget.startAtEnd;
+    _initing = true;
+    _detectTall();
+    _initing = false;
     final p = widget.panelPage;
     if (p != null) {
-      _wantEnd = widget.startAtEnd;
       unawaited(PanelDetector.layout('${p.localPath ?? p.url}|${widget.rtl}', pageImageProvider(p), rtl: widget.rtl).then((l) {
         if (!mounted || l == null) return;
         _layout = l;
         // a cached layout arrives synchronously, before the first layout pass: wait for a size
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || l.isSingle) return;
+          if (!mounted || l.isSingle || _tall) return;
           if (_panel < 0 || _panelPending) _showPanel(_wantEnd ? l.panels.length - 1 : 0, animate: false);
           _panelPending = false;
         });
@@ -646,9 +679,90 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
   bool _wantEnd = false;
   bool _panelPending = true;
 
-  /// The reader is about to turn to this page: show its first (or last) panel.
+  /// width / height of pages already seen (by stable key), shared across pages and chapters.
+  static final _aspects = <String, double>{};
+  bool _tall = false;
+  bool _initing = false;
+  final _strip = ScrollController();
+  ImageStream? _sizeStream;
+  ImageStreamListener? _sizeListener;
+
+  static const _tallAspect = 0.5; // taller than 2:1 — a strip, not a page
+
+  void _detectTall() {
+    final p = widget.single;
+    if (p == null) return;
+    final known = _aspects[p.stableKey];
+    if (known != null) {
+      _setAspect(known);
+      return;
+    }
+    final stream = pageImageProvider(p, cacheWidth: widget.cacheWidth).resolve(ImageConfiguration.empty);
+    final listener = ImageStreamListener((info, _) {
+      final a = info.image.width / info.image.height;
+      _aspects[p.stableKey] = a;
+      _stopSize();
+      if (_initing) {
+        _setAspect(a); // cached image: answered synchronously, before the first build
+      } else if (mounted) {
+        setState(() => _setAspect(a));
+      }
+    }, onError: (Object _, StackTrace? __) => _stopSize());
+    _sizeStream = stream;
+    _sizeListener = listener;
+    stream.addListener(listener);
+  }
+
+  void _stopSize() {
+    final s = _sizeStream, l = _sizeListener;
+    _sizeStream = null;
+    _sizeListener = null;
+    if (s != null && l != null) s.removeListener(l);
+  }
+
+  void _setAspect(double a) {
+    if (a >= _tallAspect || _tall) return;
+    _tall = true;
+    if (_zoomed) _t.value = Matrix4.identity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _jumpStrip(_wantEnd);
+      widget.onTall?.call();
+    });
+  }
+
+  void _jumpStrip(bool end) {
+    if (!_strip.hasClients) return;
+    _strip.jumpTo(end ? _strip.position.maxScrollExtent : 0);
+  }
+
+  /// Tap/key/swipe inside the page: scroll a tall strip by a screen, or step «по кадрам».
+  /// False when the page has nothing left in that direction.
+  bool stepWithin(int delta) {
+    if (_tall) {
+      if (!_strip.hasClients) return false;
+      final pos = _strip.position;
+      final step = pos.viewportDimension * 0.85;
+      if (delta > 0 && pos.pixels < pos.maxScrollExtent - 2) {
+        _strip.animateTo((pos.pixels + step).clamp(0, pos.maxScrollExtent), duration: MfMotion.base, curve: MfMotion.standard);
+        return true;
+      }
+      if (delta < 0 && pos.pixels > 2) {
+        _strip.animateTo((pos.pixels - step).clamp(0, pos.maxScrollExtent), duration: MfMotion.base, curve: MfMotion.standard);
+        return true;
+      }
+      return false;
+    }
+    return widget.panelPage != null && stepPanel(delta);
+  }
+
+  /// The reader is about to turn to this page: show its first (or last) panel / strip end.
   void enter({required bool atEnd}) {
     _wantEnd = atEnd;
+    if (_tall) {
+      _jumpStrip(atEnd);
+      return;
+    }
     final l = _layout;
     if (l == null || l.isSingle) {
       _panelPending = true;
@@ -677,7 +791,7 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
   /// Next/previous panel; false when the page has none left in that direction.
   bool stepPanel(int delta) {
     final l = _layout;
-    if (l == null || l.isSingle) return false;
+    if (_tall || l == null || l.isSingle) return false;
     final next = _panel + delta;
     if (next < 0 || next >= l.panels.length) return false;
     HapticFeedback.selectionClick();
@@ -687,6 +801,8 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
 
   @override
   void dispose() {
+    _stopSize();
+    _strip.dispose();
     _anim.dispose();
     _t.dispose();
     super.dispose();
@@ -710,7 +826,22 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
 
   @override
   Widget build(BuildContext context) {
-    final panels = _layout != null && !_layout!.isSingle && _panel >= 0;
+    final strip = widget.stripChild;
+    final aspect = widget.single == null ? null : _aspects[widget.single!.stableKey];
+    if (_tall && strip != null && aspect != null) {
+      return LayoutBuilder(builder: (context, box) {
+        final w = box.maxWidth;
+        return Scrollbar(
+          controller: _strip,
+          child: SingleChildScrollView(
+            controller: _strip,
+            physics: const ClampingScrollPhysics(),
+            child: SizedBox(width: w, height: w / aspect, child: strip),
+          ),
+        );
+      });
+    }
+    final panels = !_tall && _layout != null && !_layout!.isSingle && _panel >= 0;
     final viewer = InteractiveViewer(
       transformationController: _t,
       minScale: 1,
