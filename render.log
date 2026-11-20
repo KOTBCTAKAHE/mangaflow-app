@@ -1,0 +1,142 @@
+00:00 +0: loading /home/runner/work/mangaflow-app/mangaflow-app/screenshots/app_screens_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: 01 home
+00:02 +1: 02 home scrolled
+00:05 +2: 03 discover
+00:06 +3: 04 library grid
+00:08 +4: 05 library list
+00:09 +5: 06 title
+00:10 +6: 07 title scrolled
+00:13 +7: 08 reader overlay
+00:14 +8: 09 reader tap hint
+00:14 +8: 08 reader overlay
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test (but after the test had completed):
+Bad state: Tried to read a provider from a ProviderContainer that was already disposed
+
+When the exception was thrown, this was the stack:
+#0      ProviderContainer.readProviderElement (package:riverpod/src/framework/container.dart:423:7)
+#1      ProviderElementProxy.read (package:riverpod/src/framework/proxy_provider_listenable.dart:134:26)
+#2      ProviderContainer.read (package:riverpod/src/framework/container.dart:241:21)
+#3      ProviderElementBase.read (package:riverpod/src/framework/element.dart:692:23)
+#4      _bump (package:mangaflow/core/providers.dart:99:17)
+#5      _changed (package:mangaflow/core/providers.dart:164:3)
+#6      readingRepositoryProvider.<anonymous closure>.<anonymous closure> (package:mangaflow/core/providers.dart:190:24)
+#7      ReadingRepository.saveProgress (package:mangaflow/data/repositories/reading_repository.dart:58:14)
+<asynchronous suspension>
+#8      ReaderController.saveNow (package:mangaflow/features/reader/reader_controller.dart:335:5)
+<asynchronous suspension>
+#9      ReaderController.close (package:mangaflow/features/reader/reader_controller.dart:398:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:14 +7 -1: 09 reader tap hint
+00:14 +7 -1: 08 reader overlay [E]
+  Test failed. See exception logs above.
+  The test description was: 08 reader overlay
+  
+  This test failed after it had already completed.
+  Make sure to use a matching library which informs the test runner
+  of pending async work.
+  
+00:15 +8 -1: 10 settings
+00:15 +8 -1: 09 reader tap hint
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test (but after the test had completed):
+Bad state: Tried to read a provider from a ProviderContainer that was already disposed
+
+When the exception was thrown, this was the stack:
+#0      ProviderContainer.readProviderElement (package:riverpod/src/framework/container.dart:423:7)
+#1      ProviderElementProxy.read (package:riverpod/src/framework/proxy_provider_listenable.dart:134:26)
+#2      ProviderContainer.read (package:riverpod/src/framework/container.dart:241:21)
+#3      ProviderElementBase.read (package:riverpod/src/framework/element.dart:692:23)
+#4      _bump (package:mangaflow/core/providers.dart:99:17)
+#5      _changed (package:mangaflow/core/providers.dart:164:3)
+#6      readingRepositoryProvider.<anonymous closure>.<anonymous closure> (package:mangaflow/core/providers.dart:190:24)
+#7      ReadingRepository.saveProgress (package:mangaflow/data/repositories/reading_repository.dart:58:14)
+<asynchronous suspension>
+#8      ReaderController.saveNow (package:mangaflow/features/reader/reader_controller.dart:335:5)
+<asynchronous suspension>
+#9      ReaderController.close (package:mangaflow/features/reader/reader_controller.dart:398:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:15 +7 -2: 10 settings
+00:15 +7 -2: 09 reader tap hint [E]
+  Test failed. See exception logs above.
+  The test description was: 09 reader tap hint
+  
+  This test failed after it had already completed.
+  Make sure to use a matching library which informs the test runner
+  of pending async work.
+  
+00:16 +7 -2: 10 settings
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following MissingPluginException was thrown running a test:
+MissingPluginException(No implementation found for method getAll on channel
+dev.fluttercommunity.plus/package_info)
+
+When the exception was thrown, this was the stack:
+#0      MethodChannel._invokeMethod (package:flutter/src/services/platform_channel.dart:363:7)
+<asynchronous suspension>
+#1      MethodChannel.invokeMapMethod (package:flutter/src/services/platform_channel.dart:565:43)
+<asynchronous suspension>
+#2      MethodChannelPackageInfo.getAll (package:package_info_plus_platform_interface/method_channel_package_info.dart:13:17)
+<asynchronous suspension>
+#3      PackageInfo.fromPlatform (package:package_info_plus/package_info_plus.dart:82:26)
+<asynchronous suspension>
+#4      AppUpdater.currentVersion (package:mangaflow/data/services/app_updates.dart:61:45)
+<asynchronous suspension>
+
+The test description was:
+  10 settings
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:16 +7 -3: 10 settings [E]
+  Test failed. See exception logs above.
+  The test description was: 10 settings
+  
+00:17 +7 -3: 11 accent violet home
+00:18 +8 -3: 12 reader settings
+00:21 +9 -3: 13 chapter finished
+00:21 +9 -3: 12 reader settings
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test (but after the test had completed):
+Bad state: Tried to read a provider from a ProviderContainer that was already disposed
+
+When the exception was thrown, this was the stack:
+#0      ProviderContainer.readProviderElement (package:riverpod/src/framework/container.dart:423:7)
+#1      ProviderElementProxy.read (package:riverpod/src/framework/proxy_provider_listenable.dart:134:26)
+#2      ProviderContainer.read (package:riverpod/src/framework/container.dart:241:21)
+#3      ProviderElementBase.read (package:riverpod/src/framework/element.dart:692:23)
+#4      _bump (package:mangaflow/core/providers.dart:99:17)
+#5      _changed (package:mangaflow/core/providers.dart:164:3)
+#6      readingRepositoryProvider.<anonymous closure>.<anonymous closure> (package:mangaflow/core/providers.dart:190:24)
+#7      ReadingRepository.saveProgress (package:mangaflow/data/repositories/reading_repository.dart:58:14)
+<asynchronous suspension>
+#8      ReaderController.saveNow (package:mangaflow/features/reader/reader_controller.dart:335:5)
+<asynchronous suspension>
+#9      ReaderController.close (package:mangaflow/features/reader/reader_controller.dart:398:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:21 +8 -4: 13 chapter finished
+00:21 +8 -4: 12 reader settings [E]
+  Test failed. See exception logs above.
+  The test description was: 12 reader settings
+  
+  This test failed after it had already completed.
+  Make sure to use a matching library which informs the test runner
+  of pending async work.
+  
+00:22 +9 -4: (tearDownAll)
+00:22 +9 -4: Some tests failed.
+
+Failing tests:
+  /home/runner/work/mangaflow-app/mangaflow-app/screenshots/app_screens_test.dart: 08 reader overlay
+  /home/runner/work/mangaflow-app/mangaflow-app/screenshots/app_screens_test.dart: 09 reader tap hint
+  /home/runner/work/mangaflow-app/mangaflow-app/screenshots/app_screens_test.dart: 10 settings
+  /home/runner/work/mangaflow-app/mangaflow-app/screenshots/app_screens_test.dart: 12 reader settings
+exit=1
