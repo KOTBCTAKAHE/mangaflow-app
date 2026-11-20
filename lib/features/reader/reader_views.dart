@@ -662,17 +662,61 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onDoubleTapDown: (d) => _tap = d,
-        onDoubleTap: _toggleZoom,
-        child: InteractiveViewer(
-          transformationController: _t,
-          minScale: 1,
-          maxScale: 5,
-          panEnabled: _zoomed,
-          child: SizedBox.expand(child: widget.child),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final viewer = InteractiveViewer(
+      transformationController: _t,
+      minScale: 1,
+      maxScale: 5,
+      panEnabled: _zoomed,
+      child: SizedBox.expand(child: widget.child),
+    );
+    final bg = context.findAncestorWidgetOfExactType<Scaffold>()?.backgroundColor ?? Colors.black;
+    return GestureDetector(
+      onDoubleTapDown: (d) => _tap = d,
+      onDoubleTap: _toggleZoom,
+      child: widget.panelPage == null
+          ? viewer
+          : Stack(fit: StackFit.expand, children: [
+              viewer,
+              // «по кадрам»: the rest of the page fades out so only the current panel is read
+              IgnorePointer(
+                child: LayoutBuilder(builder: (context, box) {
+                  return AnimatedBuilder(
+                    animation: _t,
+                    builder: (context, _) {
+                      final l = _layout;
+                      final i = _panel;
+                      if (l == null || l.isSingle || i < 0 || i >= l.panels.length || !_zoomed) {
+                        return const SizedBox.shrink();
+                      }
+                      final r = MatrixUtils.transformRect(_t.value, panelViewportRect(l.panels[i], l.aspect, box.biggest));
+                      return CustomPaint(size: box.biggest, painter: _Spotlight(r.inflate(2), bg));
+                    },
+                  );
+                }),
+              ),
+            ]),
+    );
+  }
+}
+
+/// Covers everything but [hole] with the reader background.
+class _Spotlight extends CustomPainter {
+  _Spotlight(this.hole, this.color);
+  final Rect hole;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRect(hole);
+    canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.94));
+  }
+
+  @override
+  bool shouldRepaint(_Spotlight old) => old.hole != hole || old.color != color;
 }
 
 class _PagedEnd extends StatelessWidget {

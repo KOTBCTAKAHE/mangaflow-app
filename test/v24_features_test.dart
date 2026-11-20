@@ -43,6 +43,53 @@ void main() {
     expect(detectPanels(full, 100, 100), [const Rect.fromLTWH(0, 0, 1, 1)]);
   });
 
+  test('panels: bordered panels with no white gutters, a tall panel across rows, art bleeding over a border', () {
+    // like a real manga page: borders 3 px, gaps of 2 px between them (they merge when downscaled)
+    const w = 600, h = 880;
+    final g = Uint8List(w * h)..fillRange(0, w * h, 245);
+    void panel(int x0, int y0, int x1, int y1) {
+      for (var y = y0; y < y1; y++) {
+        for (var x = x0; x < x1; x++) {
+          g[y * w + x] = ((x ~/ 7) * 3 + (y ~/ 5) * 5) % 7 < 3 ? 30 : 240;
+        }
+      }
+      for (var x = x0; x < x1; x++) {
+        for (var t = 0; t < 3; t++) {
+          g[(y0 + t) * w + x] = 10;
+          g[(y1 - 1 - t) * w + x] = 10;
+        }
+      }
+      for (var y = y0; y < y1; y++) {
+        for (var t = 0; t < 3; t++) {
+          g[y * w + x0 + t] = 10;
+          g[y * w + x1 - 1 - t] = 10;
+        }
+      }
+    }
+
+    panel(468, 10, 590, 520); // right, tall
+    panel(306, 10, 466, 520); // middle, tall
+    panel(10, 10, 304, 125); // left column: top
+    panel(10, 127, 304, 350); //              middle
+    panel(10, 352, 304, 520); //              bottom
+    panel(10, 540, 590, 870); // bottom row
+    for (var y = 200; y < 215; y++) {
+      for (var x = 300; x < 312; x++) {
+        g[y * w + x] = 20; // art crossing the left|middle border
+      }
+    }
+    final p = detectPanels(g, w, h, rtl: true);
+    expect(p.length, 6);
+    expect(p[0].left, greaterThan(0.75), reason: 'right tall panel first');
+    expect(p[1].left, inInclusiveRange(0.5, 0.53), reason: 'then the middle one');
+    expect([p[2].top, p[3].top, p[4].top], [lessThan(0.02), inInclusiveRange(0.14, 0.16), inInclusiveRange(0.39, 0.41)],
+        reason: 'then the left column top to bottom');
+    expect(p[5].top, greaterThan(0.6), reason: 'the wide bottom panel last');
+    // cream / grey paper is still paper
+    final cream = Uint8List.fromList([for (final v in g) v == 245 ? 222 : v]);
+    expect(detectPanels(cream, w, h).length, 6);
+  });
+
   test('panel matrix centres and fits the panel', () {
     final m = panelMatrix(const Rect.fromLTRB(0.5, 0, 1, 0.5), 2 / 3, const Size(400, 600));
     final s = m.getMaxScaleOnAxis();
