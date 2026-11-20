@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config.dart';
+import '../../core/network/proxy.dart';
 import '../../core/theme/tokens.dart';
 import 'library.dart';
 
@@ -123,9 +125,14 @@ class AppSettings {
     this.lockBiometrics = true,
     this.lockTimeoutSec = 60,
     this.hideInRecents = false,
+    this.proxy = const ProxyConfig(),
   });
 
+  /// Always the official server (custom servers are no longer supported).
   final String apiBaseUrl;
+
+  /// Device-only: proxy to reach the server through.
+  final ProxyConfig proxy;
   final ThemeMode themeMode;
 
   /// null = choose automatically from the title format.
@@ -224,6 +231,7 @@ class AppSettings {
     UpscaleQuality? upscaleQuality,
     bool? upscaleDownloads,
     bool? panelMode,
+    ProxyConfig? proxy,
     PanelOrder? panelOrder,
     bool? mobileDataSaver,
     bool? autoDownloadNew,
@@ -263,6 +271,7 @@ class AppSettings {
         upscaleQuality: upscaleQuality ?? this.upscaleQuality,
         upscaleDownloads: upscaleDownloads ?? this.upscaleDownloads,
         panelMode: panelMode ?? this.panelMode,
+        proxy: proxy ?? this.proxy,
         panelOrder: panelOrder ?? this.panelOrder,
         mobileDataSaver: mobileDataSaver ?? this.mobileDataSaver,
         autoDownloadNew: autoDownloadNew ?? this.autoDownloadNew,
@@ -317,6 +326,7 @@ class AppSettings {
         'lock_biometrics': lockBiometrics,
         'lock_timeout_sec': lockTimeoutSec,
         'hide_in_recents': hideInRecents,
+        'proxy': proxy.toJson(),
         'updated_at': updatedAt.toIso8601String(),
       };
 
@@ -324,7 +334,7 @@ class AppSettings {
     List<String> strs(Object? v) => [for (final x in (v as List? ?? const [])) x as String];
     final rm = j['default_reading_mode'] as String?;
     return AppSettings(
-      apiBaseUrl: (j['api_base_url'] as String?)?.trim().isNotEmpty == true ? j['api_base_url'] as String : fallbackUrl,
+      apiBaseUrl: AppConfig.defaultApiBaseUrl,
       themeMode: ThemeMode.values.firstWhere((m) => m.name == j['theme_mode'], orElse: () => ThemeMode.dark),
       defaultReadingMode: rm == null ? null : ReadingMode.parse(rm),
       readerBackground: ReaderBackground.parse(j['reader_background'] as String?),
@@ -360,6 +370,7 @@ class AppSettings {
       lockBiometrics: j['lock_biometrics'] as bool? ?? true,
       lockTimeoutSec: (j['lock_timeout_sec'] as num?)?.toInt().clamp(0, 3600) ?? 60,
       hideInRecents: j['hide_in_recents'] as bool? ?? false,
+      proxy: ProxyConfig.fromJson(j['proxy']),
       updatedAt: DateTime.tryParse(j['updated_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
@@ -370,6 +381,7 @@ class AppSettings {
     merged['api_base_url'] = apiBaseUrl;
     merged['reader_brightness'] = readerBrightness;
     merged['reader_warmth'] = readerWarmth;
+    merged['proxy'] = proxy.toJson();
     return AppSettings.fromJson(merged, fallbackUrl: apiBaseUrl);
   }
 }

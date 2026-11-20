@@ -60,7 +60,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final server = ref.watch(settingsProvider.select((s) => s.apiBaseUrl));
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
@@ -136,8 +135,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Text(_register ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Регистрация'),
             ),
             const SizedBox(height: MfSpace.xl),
-            Text('Сервер: $server', style: context.text.labelMedium, textAlign: TextAlign.center),
-            TextButton(onPressed: () => context.push('/settings'), child: const Text('Изменить сервер')),
+            TextButton.icon(
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(Icons.vpn_lock_outlined, size: 18),
+              label: const Text('Не подключается? Настроить прокси'),
+            ),
           ]),
         ),
       ),

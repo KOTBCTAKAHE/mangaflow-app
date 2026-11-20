@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'app/router.dart';
+import 'core/network/proxy.dart';
 import 'core/providers.dart';
 import 'core/storage/database.dart';
 import 'core/theme/tokens.dart';
@@ -52,6 +53,9 @@ Future<void> main() async {
     databaseProvider.overrideWithValue(db),
     prefsProvider.overrideWithValue(prefs),
   ]);
+  // before the first request: the server may only be reachable through the proxy
+  await AppProxy.apply(container.read(settingsProvider).proxy);
+  container.listen<ProxyConfig>(settingsProvider.select((s) => s.proxy), (_, next) => unawaited(AppProxy.apply(next)));
   await container.read(authProvider.notifier).restore();
   MfColors.palette = container.read(settingsProvider).accent;
 

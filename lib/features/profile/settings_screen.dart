@@ -24,6 +24,7 @@ import '../library/library_actions.dart' show promptText;
 import '../reader/upscale_settings.dart';
 import '../security/privacy_settings.dart';
 import '../update_dialog.dart';
+import 'proxy_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -37,22 +38,13 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки')),
       body: ListView(padding: const EdgeInsets.only(bottom: MfSpace.huge), children: [
-        const _Header('Сервер'),
+        const _Header('Подключение'),
         ListTile(
-          leading: const Icon(Icons.dns_outlined),
-          title: const Text('Адрес backend'),
-          subtitle: Text(s.apiBaseUrl),
-          onTap: () async {
-            final v = await promptText(context, title: 'Адрес сервера', initial: s.apiBaseUrl, hint: 'https://manga.example.com');
-            if (v == null || v.isEmpty) return;
-            final uri = Uri.tryParse(v);
-            if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-              if (context.mounted) showSnack(context, 'Некорректный адрес');
-              return;
-            }
-            await ctrl.updateLocalOnly((x) => x.copyWith(apiBaseUrl: v));
-            if (context.mounted) showSnack(context, 'Сервер изменён');
-          },
+          leading: const Icon(Icons.vpn_lock_outlined),
+          title: const Text('Прокси'),
+          subtitle: Text(s.proxy.display),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ProxyScreen())),
         ),
         const _Header('Внешний вид'),
         Padding(

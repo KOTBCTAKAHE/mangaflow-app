@@ -2,7 +2,7 @@
 ///
 /// Override the default server with:
 ///   flutter build apk --dart-define=API_BASE_URL=https://manga.example.com
-/// Users can also change it at runtime in Settings → Server.
+/// The app always talks to this server; users can only route it through a proxy.
 abstract final class AppConfig {
   static const defaultApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',

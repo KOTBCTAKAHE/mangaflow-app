@@ -7,6 +7,7 @@ import 'package:workmanager/workmanager.dart';
 
 import '../../core/config.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/proxy.dart';
 import '../../core/storage/database.dart';
 import '../../core/storage/secure_store.dart';
 import '../local/daos.dart';
@@ -28,6 +29,9 @@ const kUpdateTask = 'mangaflow.checkUpdates';
 void backgroundDispatcher() {
   Workmanager().executeTask((task, _) async {
     WidgetsFlutterBinding.ensureInitialized();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    await AppProxy.applyFromPrefs(prefs);
     try {
       if (task == kDownloadsWorkTask) {
         await _resumeDownloads();

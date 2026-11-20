@@ -10,6 +10,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../../core/config.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/proxy.dart';
 import '../../../core/storage/database.dart';
 import '../../models/settings.dart';
 import '../../remote/catalog_api.dart';
@@ -183,6 +184,7 @@ class DownloadTaskHandler extends TaskHandler {
     _db = (await AppDatabase.open()).db; // shared native handle: never closed here
     final sp = await SharedPreferences.getInstance();
     await sp.reload(); // the app may have changed settings right before starting us
+    await AppProxy.applyFromPrefs(sp);
     _settings = PrefsSettings(sp);
     _engine = buildEngine(db: _db!, owner: 'service', settings: () => _settings!.value, onProgress: _onProgress);
     _upscaler = DownloadUpscaler(
