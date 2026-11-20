@@ -35,6 +35,10 @@ def patch_manifest() -> None:
     for p in perms:
         if p not in text:
             text = text.replace("<application", f'<uses-permission android:name="{p}"/>\n    <application', 1)
+    if "WRITE_EXTERNAL_STORAGE" not in text:
+        # «Сохранить в галерею» on Android 9 and older (10+ uses MediaStore without a permission)
+        text = text.replace("<application", '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" '
+                                            'android:maxSdkVersion="28"/>\n    <application', 1)
     text = re.sub(r'android:label="[^"]*"', 'android:label="MangaFlow"', text, count=1)
     if "flutter_foreground_task.service.ForegroundService" not in text:
         service = (

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -96,7 +97,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     c.setUpscaler(_up.enabled ? _up : null);
     c.onLongPressPage = () {
       HapticFeedback.mediumImpact();
-      shareCurrentPage(context, c);
+      pageActions(context, c);
     };
     ref.listenManual(settingsProvider.select((s) => (s.upscaleMode, s.upscaleQuality)), (_, __) {
       // the provider applies the new settings first (it listens to the same provider)
@@ -346,6 +347,8 @@ class _Overlay extends ConsumerWidget {
                 switch (v) {
                   case 'share':
                     shareCurrentPage(context, c);
+                  case 'save':
+                    saveCurrentPage(context, c);
                   case 'compare':
                     if (seg == null || c.upscaler == null) return;
                     Navigator.of(context).push(MaterialPageRoute<void>(
@@ -372,6 +375,8 @@ class _Overlay extends ConsumerWidget {
                 }
               },
               itemBuilder: (_) => [
+                if (seg != null && seg.pages.isNotEmpty && Platform.isAndroid)
+                  const PopupMenuItem(value: 'save', child: ListTile(leading: Icon(Icons.download_rounded), title: Text('Сохранить в галерею'))),
                 if (seg != null && seg.pages.isNotEmpty)
                   const PopupMenuItem(value: 'share', child: ListTile(leading: Icon(Icons.share_rounded), title: Text('Отправить страницу'))),
                 if (c.upscaler != null && seg != null && seg.pages.isNotEmpty)

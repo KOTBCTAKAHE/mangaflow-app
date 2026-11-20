@@ -54,6 +54,36 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
         handleIncoming(intent)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/gallery").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "needsPermission" -> result.success(Build.VERSION.SDK_INT < 29 &&
+                    checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                "requestPermission" -> {
+                    if (Build.VERSION.SDK_INT < 29) {
+                        requestPermissions(arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 7301)
+                    }
+                    result.success(null)
+                }
+                "save" -> {
+                    val path = call.argument<String>("path")
+                    val name = call.argument<String>("name") ?: "MangaFlow"
+                    val mime = call.argument<String>("mime") ?: "image/jpeg"
+                    if (path == null) {
+                        result.error("bad_args", "path", null)
+                    } else {
+                        Thread {
+                            try {
+                                val uri = saveToGallery(File(path), name, mime)
+                                runOnUiThread { result.success(uri) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("save_failed", e.message ?: e.javaClass.simpleName, null) }
+                            }
+                        }.start()
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/privacy").setMethodCallHandler { call, result ->
             if (call.method == "hideInRecents") {
                 hideInRecents(call.arguments as? Boolean ?: false)
@@ -78,6 +108,42 @@ class MainActivity : FlutterFragmentActivity() {
         super.onNewIntent(intent)
         intent.getStringExtra(ContinueWidgetProvider.EXTRA_ROUTE)?.let { widgetChannel?.invokeMethod("open", it) }
         handleIncoming(intent)
+    }
+
+    /** Pictures/MangaFlow. Android 10+: MediaStore (no permission); older: the public folder + media scan. */
+    private fun saveToGallery(src: File, name: String, mime: String): String {
+        val ext = when (mime) { "image/png" -> "png"; "image/webp" -> "webp"; else -> "jpg" }
+        if (Build.VERSION.SDK_INT >= 29) {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "$name.$ext")
+                put(android.provider.MediaStore.Images.Media.MIME_TYPE, mime)
+                put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/MangaFlow")
+                put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val resolver = contentResolver
+            val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: throw IllegalStateException("MediaStore insert failed")
+            try {
+                resolver.openOutputStream(uri)?.use { out -> src.inputStream().use { it.copyTo(out) } }
+                    ?: throw IllegalStateException("no output stream")
+                values.clear()
+                values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+            } catch (e: Exception) {
+                resolver.delete(uri, null, null)
+                throw e
+            }
+            return uri.toString()
+        }
+        @Suppress("DEPRECATION")
+        val dir = File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "MangaFlow")
+        dir.mkdirs()
+        var out = File(dir, "$name.$ext")
+        var n = 2
+        while (out.exists()) out = File(dir, "$name ($n).$ext").also { n++ }
+        src.copyTo(out)
+        android.media.MediaScannerConnection.scanFile(this, arrayOf(out.absolutePath), arrayOf(mime), null)
+        return out.absolutePath
     }
 
     /** Android 13+: blank preview in recents, screenshots still allowed. Older: FLAG_SECURE. */
