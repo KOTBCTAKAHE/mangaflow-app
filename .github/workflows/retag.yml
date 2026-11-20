@@ -1,0 +1,56 @@
+name: Retag
+on:
+  push:
+    paths: ['.github/workflows/retag.yml']
+permissions:
+  contents: write
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Move tags to the rewritten commits
+        run: |
+          while read -r name sha; do
+            git tag -f "$name" "$sha"
+            git push -f origin "refs/tags/$name"
+          done <<'TAGS'
+          v1.0.0 18c539a8ba785c61a5709134789f77789ea4d568
+          v1.1.0 6f5ea77ddbd86f49f8ba7d0ae3955fd044d63e04
+          v1.1.1 381df55a114d5a2f5641598a6558ee80df3806a9
+          v1.2.0 4e0a5c8433a6806a5ccf04928ca76a2ffcfc37b0
+          v1.3.0 4a103410178aed340171e6d12832d06c81df79b8
+          v1.4.0 981f34354caa0949847c35dc47a4772ee71dc01d
+          v1.5.0 72cf65c129fad625b61f4ecb1f45327ed830246d
+          v1.5.1 ae1d92a40858bfe3d98394666707c90d7f999086
+          v1.6.0 cd8f1b7731973775e65910681825dab230d553f7
+          v1.6.1 7e32219c154f2fd8733a0af95e0dc13ffeee6467
+          v1.7.0 08ee311025811880fa56803389f34f7f734d1148
+          v1.7.1 6cf6ea4cc8bfca48f2ad5f436dc6ba76e8c87419
+          v1.7.2 642e2987213286c9069bb5ac0d666464952916f2
+          v1.8.0 8fdd6454a7358859bc5092ad93ff349fd8e7d5d2
+          v1.9.0 d950f863a75b69d7b43ef26807866fa6178aae99
+          v2.0.0 e6fb4df65af52aea6b9f81591d04c283d7df54af
+          v2.0.1 fe0f692ef77862bad043e544935072a211257b1b
+          v2.0.2 6a11e0c9402d045e1b69a70a5696bba61969f617
+          v2.1.0 9aa542cbcb5e35bf2769264d8d254a37d445b3f0
+          v2.1.1 78543f2cbd1b82a0d7c16ae4c53c435718919d16
+          v2.2.0 c59b3e71fd288b21d0cbaf668125f38f951fb0a2
+          v2.2.1 13e08c4e46cafed75f6b5a131f7a42d43aae127e
+          v2.3.0 61aa88cce688c92bed614b75d003092de4dede39
+          v2.3.1 49fdf61386fcea1125592a9fa7b6288a03fe304c
+          v2.3.2 d8e49a3624e1fe52c1c9185cdb83ac0506886051
+          v2.4.0 70247b6c61be4a4d5786d508e0fda9dffd7b2627
+          v2.4.1 a33c5c116df37933b2650054bf6f48aff71ab547
+          v2.4.2 9752a20cef7b0e92927c00bf4bd27f415b8e1d71
+          v2.5.0 3fb64a5c17e468e95113e44fe609e2fd91e6f658
+          v2.6.0 6da114d22eff9a8233b801d7d4b0d0ac35475235
+          v2.6.1 6b8d3bac99997c2300c4d0bfb0872f0d808e07bf
+          v2.7.0 e0624bb959c9e8ae9aa692275fd7ecc37acc21bf
+          v2.7.1 e4a3f9bd2edf91a70c1c0d226ae49b60a7b3e2b8
+          v2.7.2 d527c7caa91dbdf7b4eb0cd9556fb0013047b46e
+          v2.8.0 9fdb12d5a0351efb843b0aa4fa647e50872ef450
+          v2.8.1 8d1f0c867ecd13a14d3849cb61487a8a47af4c10
+          TAGS
