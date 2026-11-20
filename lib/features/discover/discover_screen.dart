@@ -13,6 +13,7 @@ import '../../widgets/states.dart';
 import '../home/home_screen.dart' show sourcesProvider;
 import 'filters_sheet.dart';
 import 'search_controller.dart';
+import '../../widgets/beta_badge.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
@@ -96,7 +97,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         prefixIcon: const Icon(Icons.search_rounded),
                         suffixIcon: st.query.isEmpty
                             ? IconButton(
-                                tooltip: 'Найти по скриншоту',
+                                tooltip: 'Найти по скриншоту (бета)',
                                 icon: const Icon(Icons.image_search_rounded),
                                 onPressed: () => context.push('/lookup'),
                               )
@@ -262,7 +263,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 ? FilledButton.icon(
                     onPressed: () => ref.read(searchControllerProvider.notifier).setPlotMode(true),
                     icon: const Icon(Icons.auto_awesome_rounded),
-                    label: const Text('Искать по сюжету'),
+                    label: const Text('Искать по сюжету (бета)'),
                   )
                 : null,
           ),
@@ -526,7 +527,7 @@ class _ModeSwitch extends ConsumerWidget {
         ),
         const SizedBox(width: MfSpace.sm),
         ChoiceChip(
-          label: const Text('По сюжету'),
+          label: const BetaTitle('По сюжету'),
           avatar: const Icon(Icons.auto_awesome_rounded, size: 18),
           selected: plot,
           showCheckmark: false,

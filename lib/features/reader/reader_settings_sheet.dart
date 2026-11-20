@@ -9,6 +9,7 @@ import '../../data/models/library.dart';
 import '../../data/models/settings.dart';
 import 'reader_controller.dart';
 import 'upscale_settings.dart';
+import '../../widgets/beta_badge.dart';
 
 Future<void> showReaderSettings(BuildContext context, ReaderController c) => showModalBottomSheet<void>(
       context: context,
@@ -116,7 +117,7 @@ class _ReaderSettings extends ConsumerWidget {
           ),
           _h(context, 'По кадрам'),
           SwitchListTile(
-            title: const Text('Читать по кадрам'),
+            title: const BetaTitle('Читать по кадрам'),
             subtitle: const Text('В режиме страниц: тап по краю или свайп — следующий кадр, двойной тап — вся страница'),
             value: s.panelMode,
             onChanged: (v) => ctrl.update((x) => x.copyWith(panelMode: v)),

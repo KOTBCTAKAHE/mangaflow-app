@@ -27,6 +27,7 @@ import 'bookmark_sheet.dart';
 import 'share_page.dart';
 import 'upscale_compare_screen.dart';
 import 'reader_views.dart';
+import '../../widgets/beta_badge.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
   const ReaderScreen({super.key, required this.sourceId, required this.mangaId, required this.chapterId, this.initialPage, this.roomCode});
@@ -390,7 +391,7 @@ class _Overlay extends ConsumerWidget {
                     value: 'panels',
                     child: ListTile(
                       leading: const Icon(Icons.crop_free_rounded),
-                      title: const Text('Читать по кадрам'),
+                      title: const BetaTitle('Читать по кадрам'),
                       trailing: Icon(ref.read(settingsProvider).panelMode ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded),
                     ),
                   ),

@@ -18,6 +18,7 @@ import '../../data/remote/social_api.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
 import '../discover/search_controller.dart';
+import '../../widgets/beta_badge.dart';
 
 /// Shrinks a screenshot to ≤1200px JPEG-ish PNG before upload (faster, enough for matching).
 Future<(Uint8List, String)> _prepare(Uint8List bytes) async {
@@ -170,7 +171,7 @@ class _LookupScreenState extends ConsumerState<LookupScreen> {
   Widget build(BuildContext context) {
     final best = _matches.isEmpty ? null : _matches.first;
     return Scaffold(
-      appBar: AppBar(title: const Text('Найти по скриншоту')),
+      appBar: AppBar(title: const BetaTitle('Найти по скриншоту')),
       body: ListView(padding: const EdgeInsets.all(MfSpace.gutter), children: [
         if (_image == null) ...[
           const SizedBox(height: MfSpace.xl),

@@ -12,6 +12,7 @@ import '../../data/services/sync_engine.dart';
 import '../../widgets/effects.dart';
 import '../reader/co_reading.dart';
 import 'stats_screen.dart';
+import '../../widgets/beta_badge.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -59,7 +60,7 @@ class ProfileScreen extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => joinRoomFlow(context, ref),
         ),
-        const _Link(icon: Icons.image_search_rounded, title: 'Найти по скриншоту', subtitle: 'Страница или кадр → тайтл и глава', route: '/lookup'),
+        const _Link(icon: Icons.image_search_rounded, title: 'Найти по скриншоту', subtitle: 'Страница или кадр → тайтл и глава', route: '/lookup', beta: true),
         const _Link(icon: Icons.sync_alt_rounded, title: 'Трекеры', subtitle: 'Shikimori, MyAnimeList, AniList', route: '/trackers'),
         const _Link(icon: Icons.bookmarks_outlined, title: 'Закладки', subtitle: 'Страницы с заметками', route: '/bookmarks'),
         const _Link(icon: Icons.history_rounded, title: 'История чтения', route: '/history'),
@@ -160,7 +161,8 @@ class _StatsStrip extends StatelessWidget {
 }
 
 class _Link extends StatelessWidget {
-  const _Link({required this.icon, required this.title, required this.route, this.subtitle});
+  const _Link({required this.icon, required this.title, required this.route, this.subtitle, this.beta = false});
+  final bool beta;
   final IconData icon;
   final String title;
   final String? subtitle;
@@ -169,7 +171,7 @@ class _Link extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         leading: Icon(icon),
-        title: Text(title),
+        title: beta ? BetaTitle(title) : Text(title),
         subtitle: subtitle == null ? null : Text(subtitle!),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => context.push(route),

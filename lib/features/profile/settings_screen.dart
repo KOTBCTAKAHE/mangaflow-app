@@ -25,6 +25,7 @@ import '../reader/upscale_settings.dart';
 import '../security/privacy_settings.dart';
 import '../update_dialog.dart';
 import 'proxy_screen.dart';
+import '../../widgets/beta_badge.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -118,7 +119,7 @@ class SettingsScreen extends ConsumerWidget {
         ),
         SwitchListTile(
           secondary: const Icon(Icons.crop_free_rounded),
-          title: const Text('Чтение по кадрам'),
+          title: const BetaTitle('Чтение по кадрам'),
           subtitle: const Text('В страничном режиме: тап по краю — следующий кадр с плавным приближением'),
           value: s.panelMode,
           onChanged: (v) => ctrl.update((x) => x.copyWith(panelMode: v)),
