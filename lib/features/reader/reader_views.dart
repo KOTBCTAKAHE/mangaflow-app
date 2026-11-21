@@ -8,6 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/library.dart';
 import '../../data/models/manga.dart';
 import '../../data/models/settings.dart';
+import '../../data/services/upscale_service.dart';
 import '../../widgets/states.dart';
 import '../title/other_sources.dart';
 import 'reader_controller.dart';
@@ -548,6 +549,15 @@ class _PagedReaderState extends State<PagedReader> {
               return;
             }
             c.onPageVisible(seg.index, spreads[i].last);
+            if (c.settings().autoCrop && !_double) {
+              // find the margins of the next pages before they are shown
+              for (final k in [i + 1, i + 2]) {
+                if (k < seg.pages.length) {
+                  final p = seg.pages[k];
+                  unawaited(PageCrop.of(p.stableKey, pageImageProvider(p, cacheWidth: _cacheWidth(context))));
+                }
+              }
+            }
             c.preload(context, cacheWidth: _cacheWidth(context));
           },
           itemBuilder: (context, i) {
@@ -575,7 +585,9 @@ class _PagedReaderState extends State<PagedReader> {
                 if (z != _zoomed) setState(() => _zoomed = z);
               },
               child: pages.length == 1
-                  ? ReaderPageImage(page: pages.first, upscaler: c.upscaler, fit: BoxFit.contain, cacheWidth: _cacheWidth(context))
+                  ? (panelPage == null && c.settings().autoCrop
+                      ? _CroppedPage(page: pages.first, upscaler: c.upscaler, cacheWidth: _cacheWidth(context))
+                      : ReaderPageImage(page: pages.first, upscaler: c.upscaler, fit: BoxFit.contain, cacheWidth: _cacheWidth(context)))
                   : Row(children: [
                       for (final p in ordered)
                         Expanded(
@@ -898,6 +910,64 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
                 }),
               ),
             ]),
+    );
+  }
+}
+
+/// A page without its white margins: the content box is scaled to fit the screen.
+class _CroppedPage extends StatefulWidget {
+  const _CroppedPage({required this.page, required this.cacheWidth, this.upscaler});
+  final PageRef page;
+  final int cacheWidth;
+  final PageUpscaler? upscaler;
+
+  @override
+  State<_CroppedPage> createState() => _CroppedPageState();
+}
+
+class _CroppedPageState extends State<_CroppedPage> {
+  PageCropBox? _crop;
+
+  @override
+  void initState() {
+    super.initState();
+    _crop = PageCrop.cached(widget.page.stableKey);
+    if (_crop == null) {
+      unawaited(PageCrop.of(widget.page.stableKey, pageImageProvider(widget.page, cacheWidth: widget.cacheWidth)).then((c) {
+        if (mounted && c != null) setState(() => _crop = c);
+      }));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _crop, box = c?.box;
+    if (c == null || box == null) {
+      return ReaderPageImage(page: widget.page, upscaler: widget.upscaler, fit: BoxFit.contain, cacheWidth: widget.cacheWidth);
+    }
+    double align(double start, double size) => size >= 0.999 ? 0 : 2 * start / (1 - size) - 1;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: MfMotion.base,
+      curve: MfMotion.standard,
+      builder: (context, t, child) => Opacity(opacity: 0.6 + 0.4 * t, child: child),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: ClipRect(
+            child: Align(
+              alignment: Alignment(align(box.left, box.width), align(box.top, box.height)),
+              widthFactor: box.width,
+              heightFactor: box.height,
+              child: SizedBox(
+                width: 1000 * c.aspect,
+                height: 1000,
+                child: ReaderPageImage(page: widget.page, upscaler: widget.upscaler, fit: BoxFit.fill, cacheWidth: widget.cacheWidth),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

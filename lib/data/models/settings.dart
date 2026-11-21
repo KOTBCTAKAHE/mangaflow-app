@@ -107,7 +107,7 @@ class AppSettings {
     this.readerBrightness = 1.0,
     this.downloadWifiOnly = false,
     this.hideReadChapters = false,
-    this.accent = AccentPalette.ember,
+    this.accent = AccentPalette.wallpaper,
     this.libraryView = LibraryView.grid,
     this.volumeKeys = false,
     this.volumeKeysInverted = false,
@@ -117,6 +117,7 @@ class AppSettings {
     this.upscaleQuality = UpscaleQuality.fast,
     this.upscaleDownloads = true,
     this.panelMode = false,
+    this.autoCrop = true,
     this.panelOrder = PanelOrder.auto,
     this.mobileDataSaver = true,
     this.autoDownloadNew = false,
@@ -179,6 +180,9 @@ class AppSettings {
   /// Paged reader: zoom from panel to panel («по кадрам»).
   final bool panelMode;
 
+  /// Paged modes: cut the white margins around a page so the picture is bigger.
+  final bool autoCrop;
+
   /// auto: manga right-to-left, manhwa / manhua / comics left-to-right.
   final PanelOrder panelOrder;
 
@@ -231,6 +235,7 @@ class AppSettings {
     UpscaleQuality? upscaleQuality,
     bool? upscaleDownloads,
     bool? panelMode,
+    bool? autoCrop,
     ProxyConfig? proxy,
     PanelOrder? panelOrder,
     bool? mobileDataSaver,
@@ -271,6 +276,7 @@ class AppSettings {
         upscaleQuality: upscaleQuality ?? this.upscaleQuality,
         upscaleDownloads: upscaleDownloads ?? this.upscaleDownloads,
         panelMode: panelMode ?? this.panelMode,
+        autoCrop: autoCrop ?? this.autoCrop,
         proxy: proxy ?? this.proxy,
         panelOrder: panelOrder ?? this.panelOrder,
         mobileDataSaver: mobileDataSaver ?? this.mobileDataSaver,
@@ -302,6 +308,7 @@ class AppSettings {
         'download_wifi_only': downloadWifiOnly,
         'hide_read_chapters': hideReadChapters,
         'accent': accent.api,
+        'accent_v': 2,
         'library_view': libraryView.api,
         'volume_keys': volumeKeys,
         'volume_keys_inverted': volumeKeysInverted,
@@ -310,6 +317,7 @@ class AppSettings {
         'upscale_quality': upscaleQuality.api,
         'upscale_downloads': upscaleDownloads,
         'panel_mode': panelMode,
+        'auto_crop': autoCrop,
         'panel_order': panelOrder.api,
         'mobile_data_saver': mobileDataSaver,
         'auto_download_new': autoDownloadNew,
@@ -352,7 +360,8 @@ class AppSettings {
       readerBrightness: (j['reader_brightness'] as num?)?.toDouble().clamp(0.15, 1.0) ?? 1.0,
       downloadWifiOnly: j['download_wifi_only'] as bool? ?? false,
       hideReadChapters: j['hide_read_chapters'] as bool? ?? false,
-      accent: AccentPalette.parse(j['accent'] as String?),
+      // 2.9: everyone starts on Material You (wallpaper colours) once; a later choice sticks
+      accent: j['accent_v'] == 2 ? AccentPalette.parse(j['accent'] as String?) : AccentPalette.wallpaper,
       libraryView: LibraryView.parse(j['library_view'] as String?),
       volumeKeys: j['volume_keys'] as bool? ?? false,
       volumeKeysInverted: j['volume_keys_inverted'] as bool? ?? false,
@@ -362,6 +371,7 @@ class AppSettings {
       upscaleQuality: UpscaleQuality.parse(j['upscale_quality'] as String?),
       upscaleDownloads: j['upscale_downloads'] as bool? ?? true,
       panelMode: j['panel_mode'] as bool? ?? false,
+      autoCrop: j['auto_crop'] as bool? ?? true,
       panelOrder: PanelOrder.parse(j['panel_order'] as String?),
       mobileDataSaver: j['mobile_data_saver'] as bool? ?? true,
       autoDownloadNew: j['auto_download_new'] as bool? ?? false,

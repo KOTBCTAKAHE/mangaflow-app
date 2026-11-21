@@ -18,6 +18,7 @@ import '../../core/utils/format.dart';
 import '../../data/models/manga.dart';
 import '../../data/services/download_manager.dart';
 import '../../data/services/transfer/chapter_transfer.dart';
+import '../../data/services/transfer/local_files.dart';
 import '../../data/services/transfer/zip.dart';
 import '../../widgets/net_image.dart';
 import '../../widgets/states.dart';
@@ -28,7 +29,7 @@ final chapterTransferProvider = Provider((ref) {
   return ChapterTransfer(db: m.db, rootDir: m.rootDir, titleCache: ref.watch(titleCacheDaoProvider));
 });
 
-String transferError(Object e) => e is ZipFormatException ? e.message : errorText(e);
+String transferError(Object e) => e is ZipFormatException ? e.message : (e is FormatException ? e.message : errorText(e));
 
 String _chapters(int n) {
   final m10 = n % 10, m100 = n % 100;
@@ -230,12 +231,53 @@ class _SendSheetState extends ConsumerState<_SendSheet> {
 
 // ================================================================= receiving
 
-/// «Получить главы из файла»: pick a .cbz/.zip and open the import screen.
-Future<void> pickChaptersFile(BuildContext context) async {
-  final picked = await FilePicker.platform.pickFiles(type: FileType.any);
-  final path = picked?.files.single.path;
-  if (path == null || !context.mounted) return;
-  await context.push(Routes.importChapters(path));
+/// «Получить главы из файла»: same as «Открыть файл».
+Future<void> pickChaptersFile(BuildContext context) => openLocalFiles(context);
+
+/// «Открыть файл»: CBZ/ZIP, PDF, pictures — one or many — become a title in «Загрузки».
+Future<void> openLocalFiles(BuildContext context) async {
+  final picked = await FilePicker.platform.pickFiles(type: FileType.any, allowMultiple: true);
+  final paths = [for (final f in picked?.files ?? const <PlatformFile>[]) if (f.path != null) f.path!];
+  if (paths.isEmpty || !context.mounted) return;
+  final ok = paths.where(LocalFiles.supported).toList();
+  if (ok.isEmpty) {
+    showSnack(context, 'Подходят CBZ, ZIP, PDF и картинки');
+    return;
+  }
+  if (ok.length == 1 && !isImageName(ok.first)) {
+    await context.push(Routes.importChapters(ok.first)); // the import screen prepares a PDF itself
+    return;
+  }
+  final status = ValueNotifier<String>('Готовлю файлы…');
+  unawaited(showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(children: [
+          const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+          const SizedBox(width: MfSpace.lg),
+          Expanded(child: ValueListenableBuilder<String>(valueListenable: status, builder: (_, v, __) => Text(v))),
+        ]),
+      ),
+    ),
+  ));
+  String? pack;
+  Object? error;
+  try {
+    pack = await LocalFiles.toPack(ok, onStatus: (v) => status.value = v);
+  } catch (e) {
+    error = e;
+  }
+  if (!context.mounted) return;
+  Navigator.of(context, rootNavigator: true).pop();
+  status.dispose();
+  if (error != null) {
+    showSnack(context, transferError(error));
+  } else if (pack != null) {
+    await context.push(Routes.importChapters(pack));
+  }
 }
 
 class ImportChaptersScreen extends ConsumerStatefulWidget {
@@ -250,7 +292,18 @@ class ImportChaptersScreen extends ConsumerStatefulWidget {
 }
 
 class _ImportChaptersScreenState extends ConsumerState<ImportChaptersScreen> {
-  late final Future<PackPreview> _preview = ref.read(chapterTransferProvider).inspect(widget.path)
+  /// The file to import: the picked archive, or a CBZ made from a PDF / pictures.
+  late String _pack = widget.path;
+  String? _status;
+
+  late final Future<PackPreview> _preview = () async {
+    if (!LocalFiles.isArchive(widget.path)) {
+      _pack = await LocalFiles.toPack([widget.path], onStatus: (v) {
+        if (mounted) setState(() => _status = v);
+      });
+    }
+    return ref.read(chapterTransferProvider).inspect(_pack);
+  }()
     ..then((_) {
       if (widget.autoImport && mounted && _progress == null && _result == null) unawaited(_import());
     }, onError: (Object _) {});
@@ -264,10 +317,15 @@ class _ImportChaptersScreenState extends ConsumerState<ImportChaptersScreen> {
       _error = null;
     });
     try {
-      final r = await ref.read(chapterTransferProvider).importPack(widget.path, onProgress: (v) {
+      final r = await ref.read(chapterTransferProvider).importPack(_pack, onProgress: (v) {
         if (mounted) setState(() => _progress = v);
       });
       ref.read(downloadManagerProvider).notifyChanged();
+      if (_pack != widget.path) {
+        try {
+          await File(_pack).delete(); // the CBZ we made from a PDF / pictures
+        } catch (_) {}
+      }
       if (widget.path.contains('/incoming/') || widget.path.contains('/wifi-in/')) {
         try {
           await File(widget.path).delete(); // our own copy of a received file
@@ -295,11 +353,18 @@ class _ImportChaptersScreenState extends ConsumerState<ImportChaptersScreen> {
             return EmptyState(
               icon: Icons.folder_zip_outlined,
               title: 'Не получилось открыть файл',
-              message: '${transferError(snap.error!)}\n\nПодходят файлы .cbz/.zip, которые отправили из MangaFlow, и обычные CBZ-архивы.',
+              message: '${transferError(snap.error!)}\n\nПодходят файлы из MangaFlow, обычные CBZ/ZIP-архивы, PDF и картинки.',
             );
           }
           final pv = snap.data;
-          if (pv == null) return const Center(child: CircularProgressIndicator());
+          if (pv == null) {
+            return Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const CircularProgressIndicator(),
+                if (_status != null) ...[const SizedBox(height: MfSpace.lg), Text(_status!, style: context.text.bodyMedium)],
+              ]),
+            );
+          }
           final fresh = pv.chapters.length - pv.alreadyHave;
           return ListView(padding: const EdgeInsets.all(MfSpace.gutter), children: [
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -12,6 +12,7 @@ import '../../widgets/effects.dart';
 import '../../widgets/manga_widgets.dart';
 import '../../widgets/states.dart';
 import 'library_actions.dart';
+import '../transfer/transfer_ui.dart';
 
 enum LibrarySort {
   lastRead('Недавно читал'),
@@ -136,7 +137,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               itemBuilder: (_) => [for (final s in LibrarySort.values) PopupMenuItem(value: s, child: Text(s.label))],
             ),
             IconButton(
-              tooltip: 'Коллекции',
+              tooltip: 'Открыть файл: CBZ, PDF, картинки',
+              icon: const Icon(Icons.file_open_outlined),
+              onPressed: () => openLocalFiles(context),
+            ),
+            IconButton(
+              tooltip: 'Полки',
               icon: const Icon(Icons.folder_copy_outlined),
               onPressed: () => showCollectionsManager(context, ref),
             ),

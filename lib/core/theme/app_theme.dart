@@ -4,69 +4,30 @@ import 'package:flutter/services.dart';
 
 import 'tokens.dart';
 
-/// Builds Material 3 themes from [MfColors]/[MfType] tokens.
+/// Material You themes: every colour comes from one tonal [ColorScheme] — seeded by the
+/// wallpaper (Android 12+) or a preset accent — so surfaces, chips and bars all carry its hue.
 abstract final class AppTheme {
-  static ThemeData dark() => _build(
-        brightness: Brightness.dark,
-        bg: MfColors.bg,
-        surface: MfColors.surface,
-        raised: MfColors.surfaceRaised,
-        high: MfColors.surfaceHigh,
-        border: MfColors.border,
-        primaryText: MfColors.textPrimary,
-        secondaryText: MfColors.textSecondary,
-        tertiaryText: MfColors.textTertiary,
-      );
+  /// Scheme for [seed]. Wallpaper colours use Android's own tonal-spot recipe; presets keep
+  /// their exact hue (fidelity) so «Янтарь» stays amber.
+  static ColorScheme scheme(Color seed, Brightness brightness, {bool wallpaper = false}) => ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: brightness,
+        dynamicSchemeVariant: wallpaper ? DynamicSchemeVariant.tonalSpot : DynamicSchemeVariant.fidelity,
+      ).copyWith(error: MfColors.danger);
 
-  static ThemeData light() => _build(
-        brightness: Brightness.light,
-        bg: MfColors.lightBg,
-        surface: MfColors.lightSurface,
-        raised: MfColors.lightSurfaceRaised,
-        high: MfColors.lightBorder,
-        border: MfColors.lightBorder,
-        primaryText: MfColors.lightTextPrimary,
-        secondaryText: MfColors.lightTextSecondary,
-        tertiaryText: MfColors.lightTextTertiary,
-      );
+  static ThemeData dark([ColorScheme? s]) => build(s ?? scheme(MfColors.palette.color, Brightness.dark));
+  static ThemeData light([ColorScheme? s]) => build(s ?? scheme(MfColors.palette.color, Brightness.light));
 
-  static ThemeData _build({
-    required Brightness brightness,
-    required Color bg,
-    required Color surface,
-    required Color raised,
-    required Color high,
-    required Color border,
-    required Color primaryText,
-    required Color secondaryText,
-    required Color tertiaryText,
-  }) {
-    final isDark = brightness == Brightness.dark;
-    final scheme = ColorScheme(
-      brightness: brightness,
-      primary: MfColors.accent,
-      onPrimary: MfColors.onAccent,
-      primaryContainer: MfColors.accentSoft,
-      onPrimaryContainer: MfColors.accent,
-      secondaryContainer: MfColors.accentSoft,
-      onSecondaryContainer: MfColors.accent,
-      secondary: secondaryText,
-      onSecondary: bg,
-      surface: surface,
-      onSurface: primaryText,
-      onSurfaceVariant: secondaryText,
-      surfaceContainerLowest: bg,
-      surfaceContainerLow: surface,
-      surfaceContainer: raised,
-      surfaceContainerHigh: high,
-      surfaceContainerHighest: high,
-      outline: border,
-      outlineVariant: isDark ? MfColors.borderSubtle : MfColors.lightBorder,
-      error: MfColors.danger,
-      onError: Colors.white,
-      shadow: Colors.black,
-      scrim: Colors.black,
-    );
+  static ThemeData build(ColorScheme scheme) {
+    final isDark = scheme.brightness == Brightness.dark;
+    final brightness = scheme.brightness;
+    final bg = scheme.surface;
+    final raised = scheme.surfaceContainer;
+    final high = scheme.surfaceContainerHighest;
+    final border = scheme.outlineVariant;
+    final primaryText = scheme.onSurface;
+    final secondaryText = scheme.onSurfaceVariant;
+    final tertiaryText = scheme.outline;
 
     final text = TextTheme(
       displaySmall: MfType.display.copyWith(color: primaryText),
@@ -82,7 +43,7 @@ abstract final class AppTheme {
       labelSmall: MfType.overline.copyWith(color: tertiaryText),
     );
 
-    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(MfRadius.md));
+    const shape = StadiumBorder(); // expressive: pill buttons
 
     return ThemeData(
       useMaterial3: true,
@@ -107,14 +68,15 @@ abstract final class AppTheme {
         systemOverlayStyle: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
+        backgroundColor: scheme.surfaceContainer,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: MfColors.accentSoft,
-        height: 68,
+        indicatorColor: scheme.secondaryContainer,
+        indicatorShape: const StadiumBorder(),
+        height: 76,
         elevation: 0,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
-              color: s.contains(WidgetState.selected) ? MfColors.accent : secondaryText,
+              color: s.contains(WidgetState.selected) ? scheme.onSecondaryContainer : secondaryText,
               size: MfSize.icon,
             )),
         labelTextStyle: WidgetStateProperty.resolveWith((s) => MfType.caption.copyWith(
@@ -128,25 +90,31 @@ abstract final class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: MfRadius.card,
-          side: BorderSide(color: isDark ? MfColors.borderSubtle : MfColors.lightBorder),
+          side: BorderSide.none,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: MfColors.accent,
-          foregroundColor: MfColors.onAccent,
+          backgroundColor: scheme.primary,
+          foregroundColor: scheme.onPrimary,
           disabledBackgroundColor: high,
-          minimumSize: const Size(64, MfSize.tap),
-          padding: const EdgeInsets.symmetric(horizontal: MfSpace.xl),
+          minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: MfSpace.xxl),
           textStyle: MfType.label,
           shape: shape,
         ),
       ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: scheme.primaryContainer,
+        foregroundColor: scheme.onPrimaryContainer,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MfRadius.lg)),
+      ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primaryText,
-          minimumSize: const Size(64, MfSize.tap),
-          side: BorderSide(color: border),
+          minimumSize: const Size(64, 52),
+          side: BorderSide(color: scheme.outline),
           padding: const EdgeInsets.symmetric(horizontal: MfSpace.xl),
           textStyle: MfType.label,
           shape: shape,
@@ -154,7 +122,7 @@ abstract final class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: MfColors.accent,
+          foregroundColor: scheme.primary,
           minimumSize: const Size(48, MfSize.tap),
           textStyle: MfType.label,
           shape: shape,
@@ -165,77 +133,77 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: raised,
-        selectedColor: MfColors.accentSoft,
-        side: BorderSide(color: border),
+        selectedColor: scheme.secondaryContainer,
+        side: BorderSide.none,
         labelStyle: MfType.label.copyWith(color: primaryText),
-        secondaryLabelStyle: MfType.label.copyWith(color: MfColors.accent),
+        secondaryLabelStyle: MfType.label.copyWith(color: scheme.onSecondaryContainer),
         padding: const EdgeInsets.symmetric(horizontal: MfSpace.sm, vertical: MfSpace.xs),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MfRadius.pill)),
-        checkmarkColor: MfColors.accent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MfRadius.sm)),
+        checkmarkColor: scheme.onSecondaryContainer,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: raised,
+        fillColor: scheme.surfaceContainerHigh,
         hintStyle: MfType.body.copyWith(color: tertiaryText),
         labelStyle: MfType.body.copyWith(color: secondaryText),
         contentPadding: const EdgeInsets.symmetric(horizontal: MfSpace.lg, vertical: MfSpace.md + 2),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(MfRadius.md), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(MfRadius.md), borderSide: BorderSide(color: border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(MfRadius.md), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(MfRadius.md),
-            borderSide: BorderSide(color: MfColors.accent, width: 1.5)),
+            borderSide: BorderSide(color: scheme.primary, width: 2)),
         errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(MfRadius.md), borderSide: const BorderSide(color: MfColors.danger)),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: surface,
+        backgroundColor: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
-        modalBackgroundColor: surface,
+        modalBackgroundColor: scheme.surfaceContainerLow,
         shape: const RoundedRectangleBorder(borderRadius: MfRadius.sheet),
         showDragHandle: true,
-        dragHandleColor: border,
+        dragHandleColor: scheme.outline,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: surface,
+        backgroundColor: scheme.surfaceContainerHigh,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MfRadius.lg)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MfRadius.xl)),
         titleTextStyle: MfType.title.copyWith(color: primaryText),
         contentTextStyle: MfType.body.copyWith(color: secondaryText),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: high,
-        contentTextStyle: MfType.body.copyWith(color: primaryText),
-        actionTextColor: MfColors.accent,
+        backgroundColor: scheme.inverseSurface,
+        contentTextStyle: MfType.body.copyWith(color: scheme.onInverseSurface),
+        actionTextColor: scheme.inversePrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MfRadius.md)),
       ),
       sliderTheme: SliderThemeData(
-        activeTrackColor: MfColors.accent,
+        activeTrackColor: scheme.primary,
         inactiveTrackColor: high,
-        thumbColor: MfColors.accent,
-        overlayColor: MfColors.accentSoft,
-        trackHeight: 3,
+        thumbColor: scheme.primary,
+        overlayColor: scheme.primary.withValues(alpha: 0.16),
+        trackHeight: 6,
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: SegmentedButton.styleFrom(
           backgroundColor: Colors.transparent,
           foregroundColor: secondaryText,
-          selectedBackgroundColor: MfColors.accentSoft,
-          selectedForegroundColor: MfColors.accent,
-          side: BorderSide(color: border),
+          selectedBackgroundColor: scheme.secondaryContainer,
+          selectedForegroundColor: scheme.onSecondaryContainer,
+          side: BorderSide(color: scheme.outline),
           textStyle: MfType.label,
         ),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-            (s) => s.contains(WidgetState.selected) ? MfColors.onAccent : secondaryText),
+            (s) => s.contains(WidgetState.selected) ? scheme.onPrimary : scheme.outline),
         trackColor: WidgetStateProperty.resolveWith(
-            (s) => s.contains(WidgetState.selected) ? MfColors.accent : high),
-        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+            (s) => s.contains(WidgetState.selected) ? scheme.primary : high),
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? Colors.transparent : scheme.outline),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: MfColors.accent,
+        color: scheme.primary,
         linearTrackColor: high,
         circularTrackColor: Colors.transparent,
       ),
@@ -244,8 +212,12 @@ abstract final class AppTheme {
         unselectedLabelColor: tertiaryText,
         labelStyle: MfType.label,
         unselectedLabelStyle: MfType.label,
-        indicatorColor: MfColors.accent,
+        indicatorColor: scheme.primary,
         indicatorSize: TabBarIndicatorSize.label,
+        indicator: UnderlineTabIndicator(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          borderSide: BorderSide(color: scheme.primary, width: 3),
+        ),
         dividerColor: Colors.transparent,
         tabAlignment: TabAlignment.start,
       ),
@@ -270,5 +242,5 @@ extension MfThemeX on BuildContext {
   ColorScheme get colors => Theme.of(this).colorScheme;
   TextTheme get text => Theme.of(this).textTheme;
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
-  Color get textTertiary => isDark ? MfColors.textTertiary : MfColors.lightTextTertiary;
+  Color get textTertiary => Theme.of(this).colorScheme.outline;
 }

@@ -71,10 +71,15 @@ def patch_manifest() -> None:
             text = text.replace("    </queries>", entries + "    </queries>", 1)
         else:
             text = text.replace("</manifest>", "    <queries>\n" + entries + "    </queries>\n</manifest>", 1)
+    if "mangaflow-transfer" in text and 'android:mimeType="application/pdf"' not in text:
+        # «Открыть файл»: PDFs too (added after the transfer filters existed)
+        text = text.replace('                <data android:mimeType="application/zip" />\n',
+                            '                <data android:mimeType="application/zip" />\n'
+                            '                <data android:mimeType="application/pdf" />\n')
     if "mangaflow-transfer" not in text:
         # «Передать главы»: open/share .cbz/.zip files with MangaFlow
         mimes = "".join(f'                <data android:mimeType="{m}" />\n' for m in (
-            "application/zip", "application/x-zip-compressed", "application/x-cbz",
+            "application/zip", "application/pdf", "application/x-zip-compressed", "application/x-cbz",
             "application/vnd.comicbook+zip", "application/octet-stream"))
         filters = (
             '            <!-- mangaflow-transfer -->\n'

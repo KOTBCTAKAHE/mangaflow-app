@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,6 +56,11 @@ class _MangaFlowAppState extends ConsumerState<MangaFlowApp> with WidgetsBinding
   }
 
   @override
+  void didChangePlatformBrightness() {
+    if (mounted) setState(() {}); // «Система»: the accents follow the light/dark switch
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _periodic?.cancel();
@@ -68,12 +74,28 @@ class _MangaFlowAppState extends ConsumerState<MangaFlowApp> with WidgetsBinding
     final themeMode = ref.watch(settingsProvider.select((s) => s.themeMode));
     final accent = ref.watch(settingsProvider.select((s) => s.accent));
     MfColors.palette = accent; // read by tokens during build
+    // Material You: the wallpaper's colour (Android 12+) seeds the whole scheme
+    return DynamicColorBuilder(builder: (lightDynamic, darkDynamic) {
+      final fromWallpaper = accent == AccentPalette.wallpaper;
+      final seed = fromWallpaper ? (lightDynamic?.primary ?? darkDynamic?.primary ?? accent.color) : accent.color;
+      MfColors.wallpaperSeed = lightDynamic?.primary ?? darkDynamic?.primary;
+      final light = AppTheme.scheme(seed, Brightness.light, wallpaper: fromWallpaper);
+      final dark = AppTheme.scheme(seed, Brightness.dark, wallpaper: fromWallpaper);
+      final isDark = themeMode == ThemeMode.dark ||
+          (themeMode == ThemeMode.system &&
+              WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
+      MfColors.scheme = isDark ? dark : light;
+      return _app(light, dark, themeMode, ValueKey((accent, seed, isDark)));
+    });
+  }
+
+  Widget _app(ColorScheme light, ColorScheme dark, ThemeMode themeMode, Key key) {
     return MaterialApp.router(
-      key: ValueKey(accent), // rebuild every widget that read the old accent
+      key: key, // rebuild every widget that read the old accent
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(light),
+      darkTheme: AppTheme.dark(dark),
       themeMode: themeMode,
       routerConfig: widget.router,
       // PIN / fingerprint screen above every route

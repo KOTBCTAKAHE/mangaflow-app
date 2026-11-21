@@ -23,8 +23,39 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderStateMixin {
   StatefulNavigationShell get shell => widget.shell;
+
+  /// Material «fade through» between tabs: the new tab fades and rises in.
+  late final AnimationController _tab = AnimationController(vsync: this, duration: MfMotion.slow, value: 1);
+  late int _lastIndex = widget.shell.currentIndex;
+
+  @override
+  void didUpdateWidget(AppShell old) {
+    super.didUpdateWidget(old);
+    if (widget.shell.currentIndex != _lastIndex) {
+      _lastIndex = widget.shell.currentIndex;
+      _tab.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
+
+  Widget get _content => AnimatedBuilder(
+        animation: _tab,
+        builder: (context, child) {
+          final t = MfMotion.emphasized.transform(_tab.value);
+          return Opacity(
+            opacity: (0.35 + 0.65 * t).clamp(0.0, 1.0),
+            child: Transform.translate(offset: Offset(0, 14 * (1 - t)), child: child),
+          );
+        },
+        child: shell,
+      );
 
   @override
   void initState() {
@@ -94,12 +125,12 @@ class _AppShellState extends ConsumerState<AppShell> {
             ],
           ),
           const VerticalDivider(width: 1),
-          Expanded(child: shell),
+          Expanded(child: _content),
         ]),
       );
     }
     return Scaffold(
-      body: shell,
+      body: _content,
       extendBody: true, // content scrolls under the frosted bar
       bottomNavigationBar: MfNavBar(
         selectedIndex: shell.currentIndex,

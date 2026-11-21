@@ -62,7 +62,7 @@ class SettingsScreen extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.lg, MfSpace.gutter, MfSpace.xs),
-          child: Text('Акцентный цвет', style: context.text.bodySmall),
+          child: Text('Цвета приложения · «Обои» — Material You: оттенки берутся из обоев телефона', style: context.text.bodySmall),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter - 4),
@@ -116,6 +116,13 @@ class SettingsScreen extends ConsumerWidget {
           subtitle: const Text('Без Wi-Fi страницы грузятся в 720px — в ~2–3 раза меньше трафика. Улучшение ИИ на телефоне возвращает чёткость.'),
           value: s.mobileDataSaver,
           onChanged: (v) => ctrl.update((x) => x.copyWith(mobileDataSaver: v)),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.crop_rounded),
+          title: const Text('Обрезать белые поля'),
+          subtitle: const Text('В режиме страниц картинка крупнее: пустые края и номер страницы не занимают экран'),
+          value: s.autoCrop,
+          onChanged: (v) => ctrl.update((x) => x.copyWith(autoCrop: v)),
         ),
         SwitchListTile(
           secondary: const Icon(Icons.crop_free_rounded),
@@ -234,7 +241,7 @@ class SettingsScreen extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.upload_file_outlined),
           title: const Text('Экспорт резервной копии'),
-          subtitle: const Text('Библиотека, коллекции, прогресс, история, настройки'),
+          subtitle: const Text('Библиотека, полки, прогресс, история, настройки'),
           onTap: () async {
             try {
               final file = await ref.read(backupServiceProvider).exportToFile();
@@ -418,12 +425,23 @@ class _AccentSwatch extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.color,
+                  shape: selected ? BoxShape.rectangle : BoxShape.circle,
+                  borderRadius: selected ? BorderRadius.circular(14) : null,
+                  color: palette == AccentPalette.wallpaper ? null : palette.color,
+                  gradient: palette == AccentPalette.wallpaper
+                      ? SweepGradient(colors: [
+                          MfColors.wallpaperSeed ?? palette.color,
+                          const Color(0xFFFF8A65),
+                          const Color(0xFF4DB6AC),
+                          const Color(0xFF7986CB),
+                          MfColors.wallpaperSeed ?? palette.color,
+                        ])
+                      : null,
                   border: Border.all(color: selected ? context.colors.onSurface : Colors.transparent, width: 2.5),
-                  boxShadow: selected ? [BoxShadow(color: palette.color.withValues(alpha: 0.5), blurRadius: 14)] : null,
                 ),
-                child: selected ? Icon(Icons.check_rounded, color: palette.on, size: 22) : null,
+                child: selected
+                    ? Icon(Icons.check_rounded, color: palette == AccentPalette.wallpaper ? Colors.white : palette.on, size: 22)
+                    : (palette == AccentPalette.wallpaper ? const Icon(Icons.wallpaper_rounded, color: Colors.white, size: 20) : null),
               ),
               const SizedBox(height: 4),
               Text(palette.label, style: MfType.caption.copyWith(color: context.textTertiary)),

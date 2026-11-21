@@ -16,7 +16,7 @@ class Glass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final tint = color ?? (dark ? MfColors.surface : MfColors.lightSurface).withValues(alpha: dark ? 0.72 : 0.78);
+    final tint = color ?? Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: dark ? 0.74 : 0.8);
     final content = BackdropFilter(
       filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
       child: DecoratedBox(

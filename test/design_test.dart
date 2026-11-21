@@ -36,18 +36,28 @@ void main() {
     expect(back.accent, AccentPalette.mint);
     expect(back.libraryView, LibraryView.list);
     expect(s.toSyncJson()['accent'], 'mint');
-    expect(AccentPalette.parse('nope'), AccentPalette.ember);
+    expect(AccentPalette.parse('nope'), AccentPalette.wallpaper);
+    // settings saved before Material You (no accent_v) start on the wallpaper colours once
+    expect(AppSettings.fromJson({...s.toJson()}..remove('accent_v'), fallbackUrl: 'https://x').accent, AccentPalette.wallpaper);
     expect(LibraryView.parse(null), LibraryView.grid);
     final v = AppSettings.fromJson(s.copyWith(volumeKeys: true, volumeKeysInverted: true).toJson(), fallbackUrl: 'https://x');
     expect((v.volumeKeys, v.volumeKeysInverted), (true, true));
     expect(AppSettings.fromJson(const {}, fallbackUrl: 'https://x').volumeKeys, isFalse);
   });
 
-  testWidgets('switching the accent changes the theme primary', (tester) async {
+  testWidgets('each accent seeds a tonal scheme that keeps its hue', (tester) async {
+    final primaries = <Color>{};
     for (final p in AccentPalette.values) {
       MfColors.palette = p;
-      expect(AppTheme.dark().colorScheme.primary, p.color);
+      final scheme = AppTheme.dark().colorScheme;
+      primaries.add(scheme.primary);
+      final want = HSVColor.fromColor(p.color).hue, got = HSVColor.fromColor(scheme.primary).hue;
+      final diff = (want - got).abs();
+      expect(diff < 30 || diff > 330, isTrue, reason: '${p.label}: hue $want → $got');
+      // Material You surfaces carry a hint of the accent, but stay dark
+      expect(scheme.surface.computeLuminance(), lessThan(0.05));
     }
+    expect(primaries.length, AccentPalette.values.length);
     MfColors.palette = AccentPalette.ember;
   });
 

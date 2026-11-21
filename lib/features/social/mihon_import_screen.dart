@@ -187,7 +187,7 @@ class _MihonImportScreenState extends ConsumerState<MihonImportScreen> {
         if (b == null) ...[
           Text('В Mihon (Tachiyomi, Komikku…): Настройки → Данные и хранилище → Создать резервную копию. '
               'Затем выберите файл .tachibk здесь — тайтлы найдутся в источниках MangaFlow, '
-              'категории станут коллекциями, прочитанные главы отметятся.',
+              'категории станут полками, прочитанные главы отметятся.',
               style: context.text.bodyMedium),
           const SizedBox(height: MfSpace.lg),
           FilledButton.icon(onPressed: _pick, icon: const Icon(Icons.file_open_rounded), label: const Text('Выбрать резервную копию')),
@@ -209,7 +209,7 @@ class _MihonImportScreenState extends ConsumerState<MihonImportScreen> {
               contentPadding: EdgeInsets.zero,
               value: _withCategories,
               onChanged: (v) => setState(() => _withCategories = v),
-              title: const Text('Категории → коллекции'),
+              title: const Text('Категории → полки'),
             ),
             const SizedBox(height: MfSpace.sm),
             FilledButton.icon(

@@ -1,5 +1,4 @@
-import 'package:flutter/animation.dart';
-import 'package:flutter/painting.dart';
+import 'package:flutter/material.dart';
 
 /// MangaFlow design tokens.
 ///
@@ -18,11 +17,17 @@ abstract final class MfColors {
   static const textSecondary = Color(0xFFA2A7B0);
   static const textTertiary = Color(0xFF6E737D);
 
-  // The one accent — user-selectable from [AccentPalette] (still exactly one at a time).
-  static AccentPalette palette = AccentPalette.ember;
-  static Color get accent => palette.color;
-  static Color get onAccent => palette.on;
-  static Color get accentSoft => palette.color.withValues(alpha: 0.16);
+  // The one accent — from the wallpaper (Material You) or a preset [AccentPalette].
+  static AccentPalette palette = AccentPalette.wallpaper;
+
+  /// The scheme in use (set by the app before every build): accents follow it.
+  static ColorScheme? scheme;
+
+  /// The wallpaper's colour when the phone offers one (Android 12+), for the settings swatch.
+  static Color? wallpaperSeed;
+  static Color get accent => scheme?.primary ?? palette.color;
+  static Color get onAccent => scheme?.onPrimary ?? palette.on;
+  static Color get accentSoft => accent.withValues(alpha: 0.16);
 
   // Semantic (used sparingly, desaturated to sit on graphite)
   static const success = Color(0xFF5FC48C);
@@ -46,6 +51,8 @@ abstract final class MfColors {
 
 /// Accent presets tuned to sit on the graphite neutrals.
 enum AccentPalette {
+  /// Material You: the phone's wallpaper colours (Android 12+), violet elsewhere.
+  wallpaper('wallpaper', 'Обои', Color(0xFF7D6BD8), Color(0xFFFFFFFF)),
   ember('ember', 'Янтарь', Color(0xFFFF7A5C), Color(0xFF1A0D09)),
   sakura('sakura', 'Сакура', Color(0xFFFF6F9C), Color(0xFF2A0A16)),
   violet('violet', 'Фиалка', Color(0xFF9B8CFF), Color(0xFF140E2E)),
@@ -58,7 +65,7 @@ enum AccentPalette {
   final Color color;
   final Color on;
 
-  static AccentPalette parse(String? v) => values.firstWhere((p) => p.api == v, orElse: () => AccentPalette.ember);
+  static AccentPalette parse(String? v) => values.firstWhere((p) => p.api == v, orElse: () => AccentPalette.wallpaper);
 }
 
 abstract final class MfSpace {
@@ -78,10 +85,10 @@ abstract final class MfSpace {
 
 abstract final class MfRadius {
   static const double xs = 6;
-  static const double sm = 10;
-  static const double md = 14;
-  static const double lg = 20;
-  static const double xl = 28;
+  static const double sm = 12;
+  static const double md = 18;
+  static const double lg = 26;
+  static const double xl = 32;
   static const double pill = 999;
 
   static const cover = BorderRadius.all(Radius.circular(md));
@@ -100,9 +107,9 @@ abstract final class MfSize {
 }
 
 abstract final class MfMotion {
-  static const fast = Duration(milliseconds: 140);
-  static const base = Duration(milliseconds: 220);
-  static const slow = Duration(milliseconds: 360);
+  static const fast = Duration(milliseconds: 150);
+  static const base = Duration(milliseconds: 260);
+  static const slow = Duration(milliseconds: 420);
   static const emphasized = Cubic(0.2, 0.0, 0.0, 1.0);
   static const standard = Cubic(0.4, 0.0, 0.2, 1.0);
 }
@@ -126,7 +133,8 @@ abstract final class MfType {
 
   static final display = _s(30, 36, 700, spacing: -0.8, font: displayFamily);
   static final headline = _s(22, 28, 650, spacing: -0.5, font: displayFamily);
-  static final title = _s(18, 24, 600, spacing: -0.3, font: displayFamily);
+  // titles in the text face: the display face is kept for big headings only
+  static final title = _s(19, 25, 750, spacing: -0.2);
   static final titleSmall = _s(16, 22, 700);
   static final body = _s(15, 22, 500);
   static final bodyStrong = _s(15, 22, 650);

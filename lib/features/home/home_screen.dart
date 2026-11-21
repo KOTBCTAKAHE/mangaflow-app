@@ -125,7 +125,7 @@ class _ContinueReading extends ConsumerWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeader(title: 'Продолжить чтение', onMore: () => context.push('/history')),
       SizedBox(
-        height: 130,
+        height: 168, // Material You: the thing you came for is the biggest thing on the screen
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
@@ -144,7 +144,7 @@ class _ContinueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = (MediaQuery.sizeOf(context).width * 0.8).clamp(270.0, 380.0);
+    final width = (MediaQuery.sizeOf(context).width * 0.86).clamp(290.0, 420.0);
     return SizedBox(
       width: width,
       child: PressableScale(
@@ -153,7 +153,7 @@ class _ContinueCard extends StatelessWidget {
           onTap: () => context.push(Routes.reader(item.sourceId, item.mangaId, item.chapterId)),
           onLongPress: () => context.push(Routes.title(item.sourceId, item.mangaId)),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(MfRadius.lg),
+            borderRadius: BorderRadius.circular(MfRadius.xl),
             child: Stack(fit: StackFit.expand, children: [
               if (item.coverUrl.isNotEmpty)
                 ImageFiltered(
@@ -175,13 +175,13 @@ class _ContinueCard extends StatelessWidget {
                     colors: [Colors.black.withValues(alpha: 0.35), Colors.black.withValues(alpha: 0.7)],
                   ),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-                  borderRadius: BorderRadius.circular(MfRadius.lg),
+                  borderRadius: BorderRadius.circular(MfRadius.xl),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(MfSpace.md),
                 child: Row(children: [
-                  MangaCover(url: item.coverUrl, width: 72, radius: MfRadius.sm),
+                  MangaCover(url: item.coverUrl, width: 96, radius: MfRadius.md),
                   const SizedBox(width: MfSpace.md),
                   Expanded(
                     child: Column(
@@ -189,7 +189,7 @@ class _ContinueCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                            style: MfType.titleSmall.copyWith(color: Colors.white)),
+                            style: MfType.title.copyWith(color: Colors.white)),
                         const SizedBox(height: 2),
                         Text(item.chapterTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: MfType.bodySmall.copyWith(color: Colors.white70)),
@@ -200,7 +200,7 @@ class _ContinueCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(MfRadius.pill),
                               child: LinearProgressIndicator(
                                 value: item.fraction,
-                                minHeight: 4,
+                                minHeight: 6,
                                 color: MfColors.accent,
                                 backgroundColor: Colors.white24,
                               ),
@@ -214,14 +214,14 @@ class _ContinueCard extends StatelessWidget {
                   ),
                   const SizedBox(width: MfSpace.md),
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(MfRadius.md),
                       color: MfColors.accent,
-                      boxShadow: [BoxShadow(color: MfColors.accent.withValues(alpha: 0.45), blurRadius: 14)],
+                      boxShadow: [BoxShadow(color: MfColors.accent.withValues(alpha: 0.45), blurRadius: 16)],
                     ),
-                    child: Icon(Icons.play_arrow_rounded, color: MfColors.onAccent),
+                    child: Icon(Icons.play_arrow_rounded, color: MfColors.onAccent, size: 30),
                   ),
                 ]),
               ),

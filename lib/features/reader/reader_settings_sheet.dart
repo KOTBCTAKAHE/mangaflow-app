@@ -115,6 +115,12 @@ class _ReaderSettings extends ConsumerWidget {
                 ),
             ]),
           ),
+          SwitchListTile(
+            title: const Text('Обрезать белые поля'),
+            subtitle: const Text('В режиме страниц: картинка крупнее, номер страницы и пустые края не занимают экран'),
+            value: s.autoCrop,
+            onChanged: (v) => ctrl.update((x) => x.copyWith(autoCrop: v)),
+          ),
           _h(context, 'По кадрам'),
           SwitchListTile(
             title: const BetaTitle('Читать по кадрам'),

@@ -125,6 +125,31 @@ void main() {
     expect([p[3].top, p[3].bottom], [closeTo(0.682, 0.01), closeTo(0.989, 0.01)]);
   });
 
+  test('auto-crop: white margins and a page number go, a full-bleed page stays', () {
+    const w = 300, h = 400;
+    final g = Uint8List(w * h)..fillRange(0, w * h, 245);
+    for (var y = 50; y < 350; y++) {
+      for (var x = 60; x < 240; x++) {
+        g[y * w + x] = (x + y) % 5 == 0 ? 240 : 25;
+      }
+    }
+    for (var y = 385; y < 391; y++) {
+      for (var x = 145; x < 156; x++) {
+        g[y * w + x] = 20; // page number
+      }
+    }
+    final b = contentBox(g, w, h)!;
+    expect(b.left, closeTo(60 / w - 0.015, 0.01));
+    expect(b.right, closeTo(240 / w + 0.015, 0.01));
+    expect(b.top, closeTo(50 / h - 0.015, 0.01));
+    expect(b.bottom, closeTo(350 / h + 0.015, 0.01), reason: 'the page number is not content');
+    final full = Uint8List(w * h);
+    for (var i = 0; i < full.length; i++) {
+      full[i] = (i * 7919) % 255;
+    }
+    expect(contentBox(full, w, h), isNull);
+  });
+
   test('panel matrix centres and fits the panel', () {
     final m = panelMatrix(const Rect.fromLTRB(0.5, 0, 1, 0.5), 2 / 3, const Size(400, 600));
     final s = m.getMaxScaleOnAxis();

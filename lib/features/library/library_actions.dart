@@ -48,7 +48,7 @@ Future<void> showEntryActions(BuildContext context, WidgetRef ref, LibraryEntry 
           ),
           ListTile(
             leading: const Icon(Icons.folder_outlined),
-            title: const Text('Коллекции'),
+            title: const Text('Полки'),
             onTap: () {
               Navigator.pop(context);
               showCollectionPicker(context, ref, e);
@@ -82,10 +82,10 @@ Future<void> showCollectionPicker(BuildContext context, WidgetRef ref, LibraryEn
           Padding(
             padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.sm, 0),
             child: Row(children: [
-              Expanded(child: Text('Коллекции', style: context.text.titleMedium)),
+              Expanded(child: Text('Полки', style: context.text.titleMedium)),
               TextButton.icon(
                 onPressed: () async {
-                  final name = await promptText(context, title: 'Новая коллекция');
+                  final name = await promptText(context, title: 'Новая полка');
                   if (name == null || name.isEmpty) return;
                   final id = await repo.createCollection(name);
                   all.add(Collection(id: id, name: name));
@@ -97,7 +97,7 @@ Future<void> showCollectionPicker(BuildContext context, WidgetRef ref, LibraryEn
             ]),
           ),
           if (all.isEmpty)
-            const Padding(padding: EdgeInsets.all(MfSpace.xl), child: Text('Коллекций пока нет')),
+            const Padding(padding: EdgeInsets.all(MfSpace.xl), child: Text('Полок пока нет — создайте первую')),
           for (final c in all)
             CheckboxListTile(
               value: selected.contains(c.id),
@@ -135,12 +135,12 @@ Future<void> showCollectionsManager(BuildContext context, WidgetRef ref) async {
           Padding(
             padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.sm, MfSpace.sm),
             child: Row(children: [
-              Expanded(child: Text('Пользовательские коллекции', style: context.text.titleMedium)),
+              Expanded(child: Text('Мои полки', style: context.text.titleMedium)),
               IconButton(
                 tooltip: 'Создать',
                 icon: const Icon(Icons.add_rounded),
                 onPressed: () async {
-                  final name = await promptText(context, title: 'Новая коллекция');
+                  final name = await promptText(context, title: 'Новая полка');
                   if (name != null && name.isNotEmpty) await repo.createCollection(name);
                 },
               ),
@@ -149,7 +149,7 @@ Future<void> showCollectionsManager(BuildContext context, WidgetRef ref) async {
           if (cols.isEmpty)
             const Padding(
               padding: EdgeInsets.all(MfSpace.xl),
-              child: Text('Создайте коллекцию, чтобы группировать тайтлы по своему усмотрению.'),
+              child: Text('Создайте полку — «Перечитать», «С другом», что угодно — и раскладывайте по ним тайтлы.'),
             ),
           for (final c in cols)
             ListTile(

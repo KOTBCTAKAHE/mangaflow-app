@@ -620,3 +620,139 @@ Matrix4 panelMatrix(Rect panel, double aspect, Size viewport, {double margin = 0
     ..translateByDouble(tx, ty, 0, 1)
     ..scaleByDouble(s, s, 1, 1);
 }
+
+// ============================================================== auto-crop
+
+/// The part of a page that holds anything (pictures, text), normalised, with a small margin —
+/// or null when there is nothing worth cropping (art up to the edges, margins already thin).
+/// Small islands at the very edge (page numbers, scanner specks) are ignored.
+Rect? contentBox(Uint8List gray, int w, int h) {
+  if (w < 16 || h < 16 || gray.length < w * h) return null;
+  final border = <int>[
+    for (var x = 0; x < w; x++) gray[x],
+    for (var x = 0; x < w; x++) gray[(h - 1) * w + x],
+    for (var y = 0; y < h; y++) gray[y * w],
+    for (var y = 0; y < h; y++) gray[y * w + w - 1],
+  ]..sort();
+  int pct(List<int> v, double q) => v[((v.length - 1) * q).round()];
+  final hi = pct(border, 0.9), lo = pct(border, 0.1);
+  double near(int t) => border.where((v) => (v - t).abs() <= 16).length / border.length;
+  int bg;
+  bool dark;
+  if (near(hi) >= 0.6) {
+    bg = hi;
+    dark = false;
+  } else if (near(lo) >= 0.6 && lo < 80) {
+    bg = lo;
+    dark = true;
+  } else {
+    return null; // the picture runs off the page: no margins to cut
+  }
+  final rows = Int32List(h), cols = Int32List(w);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final v = gray[y * w + x];
+      if (dark ? v > bg + 24 : v < bg - 24) rows[y]++;
+    }
+  }
+  final ry = _contentSpan(rows, h, math.max(2, (w * 0.01).ceil()));
+  if (ry == null) return null;
+  final (y0, y1) = ry;
+  for (var y = y0; y < y1; y++) {
+    for (var x = 0; x < w; x++) {
+      final v = gray[y * w + x];
+      if (dark ? v > bg + 24 : v < bg - 24) cols[x]++;
+    }
+  }
+  final rx = _contentSpan(cols, w, math.max(2, ((y1 - y0) * 0.01).ceil()));
+  if (rx == null) return null;
+  final (x0, x1) = rx;
+  final l = math.max(0.0, x0 / w - 0.015), t = math.max(0.0, y0 / h - 0.015);
+  final r = math.min(1.0, x1 / w + 0.015), b = math.min(1.0, y1 / h + 0.015);
+  if ((r - l) * (b - t) > 0.92 || r - l < 0.3 || b - t < 0.3) return null;
+  return Rect.fromLTRB(l, t, r, b);
+}
+
+(int, int)? _contentSpan(Int32List profile, int n, int threshold) {
+  final runs = <List<int>>[];
+  for (var i = 0; i < n;) {
+    if (profile[i] < threshold) {
+      i++;
+      continue;
+    }
+    var j = i;
+    while (j < n && profile[j] >= threshold) {
+      j++;
+    }
+    runs.add([i, j]);
+    i = j;
+  }
+  if (runs.isEmpty) return null;
+  // a page number or a speck at the edge, apart from the rest
+  while (runs.length > 1 && runs[0][1] - runs[0][0] < 0.04 * n && runs[1][0] - runs[0][1] >= 0.025 * n) {
+    runs.removeAt(0);
+  }
+  while (runs.length > 1 && runs.last[1] - runs.last[0] < 0.04 * n && runs.last[0] - runs[runs.length - 2][1] >= 0.025 * n) {
+    runs.removeLast();
+  }
+  return (runs.first[0], runs.last[1]);
+}
+
+/// Content box of a page plus its aspect (width / height).
+typedef PageCropBox = ({double aspect, Rect? box});
+
+PageCropBox _cropEntry(({Uint8List gray, int w, int h}) a) => (aspect: a.w / a.h, box: contentBox(a.gray, a.w, a.h));
+
+/// «Обрезать поля»: finds the white margins of a page once (300-px copy) and remembers them.
+class PageCrop {
+  static final _cache = LinkedHashMap<String, PageCropBox>();
+  static final _pending = <String, Future<PageCropBox?>>{};
+
+  static PageCropBox? cached(String key) => _cache[key];
+
+  static Future<PageCropBox?> of(String key, ImageProvider provider) {
+    final hit = _cache[key];
+    if (hit != null) return SynchronousFuture(hit);
+    return _pending[key] ??= _compute(provider).then((c) {
+      _pending.remove(key);
+      if (c != null) {
+        _cache[key] = c;
+        while (_cache.length > 400) {
+          _cache.remove(_cache.keys.first);
+        }
+      }
+      return c;
+    }, onError: (Object _) {
+      _pending.remove(key);
+      return null;
+    });
+  }
+
+  static Future<PageCropBox?> _compute(ImageProvider provider) async {
+    final stream = ResizeImage(provider, width: 300, allowUpscaling: false).resolve(ImageConfiguration.empty);
+    final completer = Completer<ui.Image>();
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener((info, _) {
+      if (!completer.isCompleted) completer.complete(info.image.clone());
+      stream.removeListener(listener);
+    }, onError: (Object e, StackTrace? _) {
+      if (!completer.isCompleted) completer.completeError(e);
+      stream.removeListener(listener);
+    });
+    stream.addListener(listener);
+    final img = await completer.future.timeout(const Duration(seconds: 20));
+    try {
+      final data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data == null) return null;
+      final w = img.width, h = img.height;
+      final rgba = data.buffer.asUint8List();
+      final gray = Uint8List(w * h);
+      for (var i = 0, p = 0; i < gray.length; i++, p += 4) {
+        gray[i] = (rgba[p] * 77 + rgba[p + 1] * 150 + rgba[p + 2] * 29) >> 8;
+      }
+      return compute(_cropEntry, (gray: gray, w: w, h: h));
+    } finally {
+      img.dispose();
+    }
+  }
+}

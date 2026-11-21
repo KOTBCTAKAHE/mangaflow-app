@@ -108,6 +108,27 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/pdf").setMethodCallHandler { call, result ->
+            if (call.method != "render") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            val path = call.argument<String>("path")
+            val out = call.argument<String>("out")
+            val width = call.argument<Int>("width") ?: 1400
+            if (path == null || out == null) {
+                result.error("bad_args", "path/out", null)
+                return@setMethodCallHandler
+            }
+            Thread {
+                try {
+                    val n = renderPdf(File(path), File(out), width)
+                    runOnUiThread { result.success(n) }
+                } catch (e: Exception) {
+                    runOnUiThread { result.error("pdf", e.message ?: e.javaClass.simpleName, null) }
+                }
+            }.start()
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mangaflow/privacy").setMethodCallHandler { call, result ->
             if (call.method == "hideInRecents") {
                 hideInRecents(call.arguments as? Boolean ?: false)
@@ -206,6 +227,37 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     /** A .cbz/.zip opened with (VIEW) or shared to (SEND) MangaFlow: copy it into the cache for Dart. */
+    /** «Открыть файл»: every PDF page to a JPEG (0001.jpg…) [width] px wide, on white. */
+    private fun renderPdf(src: File, out: File, width: Int): Int {
+        out.mkdirs()
+        val fd = android.os.ParcelFileDescriptor.open(src, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+        try {
+            val renderer = android.graphics.pdf.PdfRenderer(fd)
+            try {
+                for (i in 0 until renderer.pageCount) {
+                    val page = renderer.openPage(i)
+                    try {
+                        val h = (page.height.toLong() * width / page.width.coerceAtLeast(1)).toInt().coerceIn(1, width * 6)
+                        val bmp = android.graphics.Bitmap.createBitmap(width, h, android.graphics.Bitmap.Config.ARGB_8888)
+                        bmp.eraseColor(android.graphics.Color.WHITE)
+                        page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        File(out, String.format(java.util.Locale.ROOT, "%04d.jpg", i + 1)).outputStream().use {
+                            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it)
+                        }
+                        bmp.recycle()
+                    } finally {
+                        page.close()
+                    }
+                }
+                return renderer.pageCount
+            } finally {
+                renderer.close()
+            }
+        } finally {
+            fd.close()
+        }
+    }
+
     private fun handleIncoming(incoming: Intent?) {
         val intent = incoming ?: return
         val uri: Uri = when (intent.action) {
@@ -225,6 +277,7 @@ class MainActivity : FlutterFragmentActivity() {
                     if (c.moveToFirst() && !c.isNull(0)) name = c.getString(0)
                 }
                 val mime = intent.type ?: contentResolver.getType(uri) ?: ""
+                if (mime == "application/pdf" && !name.endsWith(".pdf", ignoreCase = true)) name += ".pdf"
                 if (mime.startsWith("image/") && !Regex("\\.(jpe?g|png|webp|gif|heic|avif)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) {
                     name = "shared." + mime.substringAfter('/').replace("jpeg", "jpg").substringBefore(';')
                 }
