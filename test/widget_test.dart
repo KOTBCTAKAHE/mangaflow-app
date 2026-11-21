@@ -3,12 +3,44 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mangaflow/core/network/api_exception.dart';
 import 'package:mangaflow/core/theme/app_theme.dart';
 import 'package:mangaflow/data/models/manga.dart';
+import 'package:mangaflow/data/models/library.dart';
 import 'package:mangaflow/widgets/manga_widgets.dart';
+import 'package:mangaflow/widgets/setting_previews.dart';
 import 'package:mangaflow/widgets/states.dart';
 
 Widget wrap(Widget child) => MaterialApp(theme: AppTheme.dark(), home: Scaffold(body: child));
 
 void main() {
+  testWidgets('settings previews paint every frame of every kind', (tester) async {
+    var picked = ReadingMode.pagedRtl as ReadingMode?;
+    await tester.pumpWidget(wrap(SingleChildScrollView(
+      child: Column(children: [
+        for (final on in [true, false])
+          Wrap(children: [
+            for (final k in PreviewKind.values)
+              if (k == PreviewKind.mode)
+                for (final m in ReadingMode.values) SettingPreview(kind: k, mode: m, enabled: on)
+              else
+                SettingPreview(kind: k, enabled: on),
+          ]),
+        StatefulBuilder(
+          builder: (context, setState) => ReadingModePicker(selected: picked, onSelect: (m) => setState(() => picked = m)),
+        ),
+      ]),
+    )));
+    // walk through whole loops: page turns, panel steps, crop, taps
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 190));
+    }
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Лента'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(picked, ReadingMode.vertical);
+    await tester.tap(find.textContaining('Авто'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(picked, isNull);
+  });
+
   testWidgets('error state shows a friendly message and retries', (tester) async {
     var retried = 0;
     await tester.pumpWidget(wrap(ErrorState(

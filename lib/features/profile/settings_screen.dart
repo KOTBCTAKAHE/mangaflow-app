@@ -11,7 +11,6 @@ import '../../core/network/api_exception.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
-import '../../data/models/library.dart';
 import '../../data/models/settings.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/services/auto_download.dart';
@@ -26,6 +25,7 @@ import '../security/privacy_settings.dart';
 import '../update_dialog.dart';
 import 'proxy_screen.dart';
 import '../../widgets/beta_badge.dart';
+import '../../widgets/setting_previews.dart';
 
 /// Settings in five sections (3.0): a short hub, each section on its own page.
 enum SettingsSection {
@@ -95,22 +95,12 @@ class SettingsScreen extends ConsumerWidget {
         const UpscaleSettingsPanel(showCache: true),
         const _Header('Читалка'),
         ListTile(
-          leading: const Icon(Icons.chrome_reader_mode_outlined),
           title: const Text('Режим по умолчанию'),
-          subtitle: Text(s.defaultReadingMode?.label ?? 'Автоматически по формату (манхва — лента, манга — RTL)'),
-          onTap: () async {
-            final picked = await showDialog<Object>(
-              context: context,
-              builder: (context) => SimpleDialog(title: const Text('Режим по умолчанию'), children: [
-                SimpleDialogOption(onPressed: () => Navigator.pop(context, 'auto'), child: const Text('Автоматически')),
-                for (final m in ReadingMode.values)
-                  SimpleDialogOption(onPressed: () => Navigator.pop(context, m), child: Text(m.label)),
-              ]),
-            );
-            if (picked == 'auto') await ctrl.setDefaultReadingMode(null);
-            if (picked is ReadingMode) await ctrl.setDefaultReadingMode(picked);
-          },
+          subtitle: Text(s.defaultReadingMode?.label ?? 'Авто: манхва — лентой, манга — страницами справа налево'),
         ),
+        // 3.0: every mode shown as it reads, not as a word
+        ReadingModePicker(selected: s.defaultReadingMode, onSelect: ctrl.setDefaultReadingMode),
+        const SizedBox(height: MfSpace.sm),
         ListTile(
           leading: const Icon(Icons.high_quality_outlined),
           title: const Text('Качество изображений'),
@@ -133,22 +123,22 @@ class SettingsScreen extends ConsumerWidget {
           value: s.mobileDataSaver,
           onChanged: (v) => ctrl.update((x) => x.copyWith(mobileDataSaver: v)),
         ),
-        SwitchListTile(
-          secondary: const Icon(Icons.merge_type_rounded),
+        PreviewSwitchTile(
+          preview: SettingPreview(kind: PreviewKind.merge, enabled: s.mergeSources),
           title: const Text('Один тайтл — все источники'),
           subtitle: const Text('Главы, которых нет на сайте тайтла, подтягиваются с других; если сайт лежит, глава откроется с другого'),
           value: s.mergeSources,
           onChanged: (v) => ctrl.update((x) => x.copyWith(mergeSources: v)),
         ),
-        SwitchListTile(
-          secondary: const Icon(Icons.crop_rounded),
+        PreviewSwitchTile(
+          preview: SettingPreview(kind: PreviewKind.crop, enabled: s.autoCrop),
           title: const Text('Обрезать белые поля'),
           subtitle: const Text('В режиме страниц картинка крупнее: пустые края и номер страницы не занимают экран'),
           value: s.autoCrop,
           onChanged: (v) => ctrl.update((x) => x.copyWith(autoCrop: v)),
         ),
-        SwitchListTile(
-          secondary: const Icon(Icons.crop_free_rounded),
+        PreviewSwitchTile(
+          preview: SettingPreview(kind: PreviewKind.panels, enabled: s.panelMode),
           title: const BetaTitle('Чтение по кадрам'),
           subtitle: const Text('В страничном режиме: тап по краю — следующий кадр с плавным приближением'),
           value: s.panelMode,
@@ -160,9 +150,10 @@ class SettingsScreen extends ConsumerWidget {
           value: s.autoNextChapter,
           onChanged: (v) => ctrl.update((x) => x.copyWith(autoNextChapter: v)),
         ),
-        SwitchListTile(
-          secondary: const Icon(Icons.touch_app_outlined),
+        PreviewSwitchTile(
+          preview: SettingPreview(kind: PreviewKind.tapZones, enabled: s.tapZones),
           title: const Text('Зоны касания'),
+          subtitle: Text(s.tapZones ? 'Край экрана — листать, середина — меню' : 'Любой тап открывает меню, листать — свайпом'),
           value: s.tapZones,
           onChanged: (v) => ctrl.update((x) => x.copyWith(tapZones: v)),
         ),

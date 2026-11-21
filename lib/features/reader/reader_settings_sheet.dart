@@ -10,6 +10,7 @@ import '../../data/models/settings.dart';
 import 'reader_controller.dart';
 import 'upscale_settings.dart';
 import '../../widgets/beta_badge.dart';
+import '../../widgets/setting_previews.dart';
 
 Future<void> showReaderSettings(BuildContext context, ReaderController c) => showModalBottomSheet<void>(
       context: context,
@@ -43,7 +44,7 @@ class _ReaderSettings extends ConsumerWidget {
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: MfSpace.sm,
               crossAxisSpacing: MfSpace.sm,
-              childAspectRatio: 0.82,
+              childAspectRatio: 0.62,
               children: [
                 for (final m in ReadingMode.values)
                   _ModeCard(mode: m, selected: c.mode == m, onTap: () => c.setMode(m)),
@@ -116,14 +117,16 @@ class _ReaderSettings extends ConsumerWidget {
                 ),
             ]),
           ),
-          SwitchListTile(
+          PreviewSwitchTile(
+            preview: SettingPreview(kind: PreviewKind.crop, enabled: s.autoCrop, width: 44, height: 70),
             title: const Text('Обрезать белые поля'),
             subtitle: const Text('В режиме страниц: картинка крупнее, номер страницы и пустые края не занимают экран'),
             value: s.autoCrop,
             onChanged: (v) => ctrl.update((x) => x.copyWith(autoCrop: v)),
           ),
           _h(context, 'По кадрам'),
-          SwitchListTile(
+          PreviewSwitchTile(
+            preview: SettingPreview(kind: PreviewKind.panels, enabled: s.panelMode, width: 44, height: 70),
             title: const BetaTitle('Читать по кадрам'),
             subtitle: const Text('В режиме страниц: тап по краю или свайп — следующий кадр, двойной тап — вся страница'),
             value: s.panelMode,
@@ -148,7 +151,8 @@ class _ReaderSettings extends ConsumerWidget {
               ]),
             ),
           _h(context, 'Поведение'),
-          SwitchListTile(
+          PreviewSwitchTile(
+            preview: SettingPreview(kind: PreviewKind.tapZones, enabled: s.tapZones, width: 44, height: 70),
             title: const Text('Зоны касания для листания'),
             subtitle: const Text('Края экрана листают, центр — меню'),
             value: s.tapZones,
@@ -236,12 +240,7 @@ class _ModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, label) = switch (mode) {
-      ReadingMode.vertical => (Icons.view_day_outlined, 'Лента'),
-      ReadingMode.pagedLtr => (Icons.east_rounded, 'Слева\nнаправо'),
-      ReadingMode.pagedRtl => (Icons.west_rounded, 'Справа\nналево'),
-      ReadingMode.doublePage => (Icons.menu_book_outlined, 'Разворот'),
-    };
+    final label = modeShortLabel(mode);
     return Material(
       color: selected ? MfColors.accentSoft : context.colors.surfaceContainerHigh,
       shape: RoundedRectangleBorder(
@@ -252,7 +251,13 @@ class _ModeCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: selected ? MfColors.accent : context.colors.onSurfaceVariant),
+          // the mode as it reads: a strip scrolling, pages turning, a spread
+          SettingPreview(
+            kind: PreviewKind.mode,
+            mode: mode,
+            width: mode == ReadingMode.doublePage ? 58 : 40,
+            height: 64,
+          ),
           const SizedBox(height: MfSpace.xs),
           Text(label, textAlign: TextAlign.center, maxLines: 2,
               style: MfType.caption.copyWith(color: selected ? MfColors.accent : context.colors.onSurface)),
