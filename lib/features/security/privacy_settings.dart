@@ -96,6 +96,7 @@ class PrivacySettings extends ConsumerWidget {
           onTap: () async {
             final v = await showModalBottomSheet<int>(
               context: context,
+              useRootNavigator: true,
               builder: (context) => SafeArea(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   for (final e in lockTimeouts.entries)

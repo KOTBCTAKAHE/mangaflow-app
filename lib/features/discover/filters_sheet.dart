@@ -24,6 +24,7 @@ Future<CatalogFilters?> showFiltersSheet(
 }) =>
     showModalBottomSheet<CatalogFilters>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _FiltersSheet(initial: initial, genres: genres, caps: caps, showSort: showSort),

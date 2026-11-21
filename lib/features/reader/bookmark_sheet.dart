@@ -29,6 +29,7 @@ Future<void> showBookmarkSheet(BuildContext context, WidgetRef ref, ReaderContro
   HapticFeedback.selectionClick();
   final result = await showModalBottomSheet<String>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (sheet) => Padding(

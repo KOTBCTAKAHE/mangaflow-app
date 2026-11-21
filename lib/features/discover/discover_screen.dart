@@ -389,21 +389,29 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     final options = [c, ...c.alsoIn];
     final picked = await showModalBottomSheet<MangaCard>(
       context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
       builder: (context) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.gutter, MfSpace.md),
-            child: Text('Найдено в ${options.length} источниках', style: context.text.titleMedium),
-          ),
-          for (final o in options)
-            ListTile(
-              leading: MangaCover(url: o.coverUrl, width: 40, radius: MfRadius.xs),
-              title: Text(o.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(o.sourceName ?? o.sourceId),
-              onTap: () => Navigator.pop(context, o),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(MfSpace.gutter, 0, MfSpace.gutter, MfSpace.md),
+              child: Text('Найдено в ${options.length} источниках', style: context.text.titleMedium),
             ),
-          const SizedBox(height: MfSpace.md),
-        ]),
+            Flexible(
+              child: ListView(shrinkWrap: true, padding: const EdgeInsets.only(bottom: MfSpace.md), children: [
+                for (final o in options)
+                  ListTile(
+                    leading: MangaCover(url: o.coverUrl, width: 40, radius: MfRadius.xs),
+                    title: Text(o.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(o.sourceName ?? o.sourceId),
+                    onTap: () => Navigator.pop(context, o),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
       ),
     );
     if (picked != null && mounted) context.push(Routes.title(picked.sourceId, picked.id));

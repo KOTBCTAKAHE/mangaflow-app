@@ -301,6 +301,7 @@ Future<void> showFullTitle(
   HapticFeedback.selectionClick();
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (sheet) => SafeArea(

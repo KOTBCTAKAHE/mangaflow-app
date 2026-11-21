@@ -124,6 +124,7 @@ class _MatchRow extends StatelessWidget {
 Future<void> showOtherSourcesSheet(BuildContext context, TitleKey k, double? currentMax) {
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (sheet) => Consumer(builder: (context, ref, _) {

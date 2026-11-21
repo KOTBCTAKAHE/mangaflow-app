@@ -13,6 +13,7 @@ import '../../widgets/beta_badge.dart';
 
 Future<void> showReaderSettings(BuildContext context, ReaderController c) => showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _ReaderSettings(c: c),

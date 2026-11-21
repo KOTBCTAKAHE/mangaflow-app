@@ -421,6 +421,7 @@ Future<void> recommendSheet(BuildContext context, WidgetRef ref, MangaDetails ma
   final msg = TextEditingController();
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (ctx) => StatefulBuilder(
@@ -576,6 +577,7 @@ Future<void> trackersSheet(BuildContext context, WidgetRef ref, MangaDetails man
   }
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (ctx) => SafeArea(
@@ -604,6 +606,7 @@ Future<void> trackersSheet(BuildContext context, WidgetRef ref, MangaDetails man
 Future<TrackerCandidate?> _pickCandidate(BuildContext context, WidgetRef ref, String service, MangaDetails manga) {
   return showModalBottomSheet<TrackerCandidate>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (ctx) => _CandidatePicker(service: service, initial: manga.altTitles.isNotEmpty ? manga.altTitles.first : manga.title),

@@ -417,6 +417,7 @@ class SettingsScreen extends ConsumerWidget {
     final current = {...ref.read(settingsProvider).excludedGenres};
     final result = await showModalBottomSheet<Set<String>>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => SafeArea(

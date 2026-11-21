@@ -72,6 +72,7 @@ Future<void> showSendChaptersSheet(BuildContext context, WidgetRef ref, List<Dow
   }
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (_) => _SendSheet(tasks: done),

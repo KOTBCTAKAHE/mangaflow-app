@@ -66,6 +66,7 @@ Future<void> ensureBackgroundAllowed(BuildContext context, WidgetRef ref, {bool 
 /// Step-by-step sheet with a button that opens the vendor's settings screen.
 Future<void> showVendorGuide(BuildContext context, VendorGuide guide) => showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => Padding(

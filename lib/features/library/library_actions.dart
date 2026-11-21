@@ -12,6 +12,7 @@ Future<void> showEntryActions(BuildContext context, WidgetRef ref, LibraryEntry 
   final repo = ref.read(libraryRepositoryProvider);
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     builder: (context) => SafeArea(
       child: Padding(
@@ -76,6 +77,7 @@ Future<void> showCollectionPicker(BuildContext context, WidgetRef ref, LibraryEn
   if (!context.mounted) return;
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -127,6 +129,7 @@ Future<void> showCollectionsManager(BuildContext context, WidgetRef ref) async {
   final repo = ref.read(libraryRepositoryProvider);
   await showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     builder: (context) => Consumer(builder: (context, ref, _) {
       final cols = ref.watch(collectionsProvider).valueOrNull ?? const <Collection>[];

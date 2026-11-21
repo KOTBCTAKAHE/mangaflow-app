@@ -97,6 +97,7 @@ Future<void> pageActions(BuildContext context, ReaderController c) async {
   if (seg == null || seg.pages.isEmpty) return;
   final v = await showModalBottomSheet<String>(
     context: context,
+    useRootNavigator: true,
     builder: (context) => SafeArea(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(

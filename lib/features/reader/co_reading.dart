@@ -188,6 +188,7 @@ Future<ReadingRoom?> startRoom(BuildContext context, WidgetRef ref, ReaderContro
 
 Future<void> showRoomCode(BuildContext context, String code, String title) => showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -324,6 +325,7 @@ class RoomOverlay extends StatelessWidget {
 
   Future<void> _menu(BuildContext context) => showModalBottomSheet<void>(
         context: context,
+        useRootNavigator: true,
         showDragHandle: true,
         builder: (ctx) => ListenableBuilder(
           listenable: room,
