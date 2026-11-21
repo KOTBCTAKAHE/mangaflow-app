@@ -81,8 +81,9 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(width: MfSpace.xs),
               ],
             ),
-            const SliverToBoxAdapter(child: _Greeting()),
+            // 3.0: what you came for first — your chapter, then what just came out, then the rest
             const SliverToBoxAdapter(child: _ContinueReading()),
+            const SliverToBoxAdapter(child: _FreshChapters()),
             const SliverToBoxAdapter(child: ForYouHomeSection()),
             if (sources.hasError && list.isEmpty)
               SliverFillRemaining(
@@ -100,6 +101,75 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+final _freshProvider = FutureProvider.autoDispose<List<ChapterUpdate>>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(updatesDaoProvider).all();
+});
+
+/// «Вышли новые главы»: the newest chapter of each followed title, newest first.
+class _FreshChapters extends ConsumerWidget {
+  const _FreshChapters();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final all = ref.watch(_freshProvider).valueOrNull ?? const <ChapterUpdate>[];
+    final seen = <String>{};
+    final items = <ChapterUpdate>[];
+    for (final u in [...all]..sort((a, b) => b.detectedAt.compareTo(a.detectedAt))) {
+      if (seen.add('${u.sourceId}/${u.mangaId}')) items.add(u);
+      if (items.length >= 12) break;
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SectionHeader(title: 'Вышли новые главы', onMore: () => context.push('/updates')),
+      SizedBox(
+        height: 214,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: MfSpace.gutter),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: MfSpace.md),
+          itemBuilder: (context, i) {
+            final u = items[i];
+            final n = u.chapterNumber;
+            final label = n == null ? 'Новая глава' : 'Гл. ${n == n.roundToDouble() ? n.toInt() : n}';
+            return SizedBox(
+              width: 112,
+              child: PressableScale(
+                scale: 0.96,
+                child: GestureDetector(
+                  onTap: () => context.push(Routes.reader(u.sourceId, u.mangaId, u.chapterId)),
+                  onLongPress: () => context.push(Routes.title(u.sourceId, u.mangaId)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Stack(children: [
+                      MangaCover(url: u.coverUrl, width: 112, radius: MfRadius.lg),
+                      Positioned(
+                        left: 6,
+                        bottom: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: u.seen ? context.colors.surfaceContainerHighest : MfColors.accent,
+                            borderRadius: BorderRadius.circular(MfRadius.pill),
+                          ),
+                          child: Text(label,
+                              style: MfType.caption.copyWith(color: u.seen ? context.colors.onSurface : MfColors.onAccent)),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: MfSpace.xs),
+                    Text(u.mangaTitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: MfType.label),
+                  ]),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
   }
 }
 
@@ -121,7 +191,7 @@ class _ContinueReading extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(continueReadingProvider).valueOrNull ?? const <ContinueItem>[];
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (items.isEmpty) return const _Greeting(); // nothing to continue yet: say hello instead
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeader(title: 'Продолжить чтение', onMore: () => context.push('/history')),
       SizedBox(

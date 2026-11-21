@@ -91,6 +91,10 @@ class MangaSearchController extends StateNotifier<SearchState> {
   CancelToken? _cancel;
 
   void setQuery(String q) {
+    if (autoPlot && state.plot && q.trim().split(RegExp(r'\s+')).length < 4) {
+      autoPlot = false;
+      state = state.copyWith(plot: false, plotHits: const []);
+    }
     state = state.copyWith(query: q);
     _debounce?.cancel();
     if (state.isIdle) {
@@ -110,7 +114,8 @@ class MangaSearchController extends StateNotifier<SearchState> {
     _run(reset: true);
   }
 
-  void setPlotMode(bool on) {
+  void setPlotMode(bool on, {bool byUser = false}) {
+    if (byUser) autoPlot = false;
     if (on == state.plot) return;
     _cancel?.cancel();
     state = state.copyWith(plot: on, items: const [], plotHits: const [], errors: const [], page: 0, hasNext: false,
@@ -160,11 +165,19 @@ class MangaSearchController extends StateNotifier<SearchState> {
         loading: false,
         loadingMore: false,
       );
+      // one search box for everything: a description that matches no name is searched by plot
+      if (reset && res.items.isEmpty && state.query.trim().split(RegExp(r'\s+')).length >= 4 && state.filters.genres.isEmpty) {
+        autoPlot = true;
+        setPlotMode(true);
+      }
     } on ApiException catch (e) {
       if (e.code == 'cancelled' || token.isCancelled) return;
       state = state.copyWith(loading: false, loadingMore: false, error: () => e);
     }
   }
+
+  /// The last switch to «По сюжету» was made by the search itself (nothing found by name).
+  bool autoPlot = false;
 
   Future<void> _runPlot(CancelToken token) async {
     state = state.copyWith(loading: true, error: () => null, plotHits: const []);

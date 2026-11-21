@@ -118,6 +118,7 @@ class AppSettings {
     this.upscaleDownloads = true,
     this.panelMode = false,
     this.autoCrop = true,
+    this.mergeSources = true,
     this.panelOrder = PanelOrder.auto,
     this.mobileDataSaver = true,
     this.autoDownloadNew = false,
@@ -183,6 +184,9 @@ class AppSettings {
   /// Paged modes: cut the white margins around a page so the picture is bigger.
   final bool autoCrop;
 
+  /// One title, every source: chapters missing on the title's site come from the others.
+  final bool mergeSources;
+
   /// auto: manga right-to-left, manhwa / manhua / comics left-to-right.
   final PanelOrder panelOrder;
 
@@ -236,6 +240,7 @@ class AppSettings {
     bool? upscaleDownloads,
     bool? panelMode,
     bool? autoCrop,
+    bool? mergeSources,
     ProxyConfig? proxy,
     PanelOrder? panelOrder,
     bool? mobileDataSaver,
@@ -277,6 +282,7 @@ class AppSettings {
         upscaleDownloads: upscaleDownloads ?? this.upscaleDownloads,
         panelMode: panelMode ?? this.panelMode,
         autoCrop: autoCrop ?? this.autoCrop,
+        mergeSources: mergeSources ?? this.mergeSources,
         proxy: proxy ?? this.proxy,
         panelOrder: panelOrder ?? this.panelOrder,
         mobileDataSaver: mobileDataSaver ?? this.mobileDataSaver,
@@ -318,6 +324,7 @@ class AppSettings {
         'upscale_downloads': upscaleDownloads,
         'panel_mode': panelMode,
         'auto_crop': autoCrop,
+        'merge_sources': mergeSources,
         'panel_order': panelOrder.api,
         'mobile_data_saver': mobileDataSaver,
         'auto_download_new': autoDownloadNew,
@@ -372,6 +379,7 @@ class AppSettings {
       upscaleDownloads: j['upscale_downloads'] as bool? ?? true,
       panelMode: j['panel_mode'] as bool? ?? false,
       autoCrop: j['auto_crop'] as bool? ?? true,
+      mergeSources: j['merge_sources'] as bool? ?? true,
       panelOrder: PanelOrder.parse(j['panel_order'] as String?),
       mobileDataSaver: j['mobile_data_saver'] as bool? ?? true,
       autoDownloadNew: j['auto_download_new'] as bool? ?? false,

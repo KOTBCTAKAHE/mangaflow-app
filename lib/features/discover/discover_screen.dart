@@ -261,7 +261,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 : 'Попробуйте другое написание или уберите фильтры',
             action: st.looksLikePlot
                 ? FilledButton.icon(
-                    onPressed: () => ref.read(searchControllerProvider.notifier).setPlotMode(true),
+                    onPressed: () => ref.read(searchControllerProvider.notifier).setPlotMode(true, byUser: true),
                     icon: const Icon(Icons.auto_awesome_rounded),
                     label: const Text('Искать по сюжету (бета)'),
                   )
@@ -337,7 +337,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(MfSpace.gutter, MfSpace.md, MfSpace.gutter, MfSpace.xs),
           child: Text(
-            'Самые близкие по сюжету — из ${st.plotIndexed} описаний',
+            ref.read(searchControllerProvider.notifier).autoPlot
+                ? 'По названию ничего — ищу по сюжету: самые близкие из ${st.plotIndexed} описаний'
+                : 'Самые близкие по сюжету — из ${st.plotIndexed} описаний',
             style: context.text.bodySmall?.copyWith(color: context.textTertiary),
           ),
         ),
@@ -523,7 +525,7 @@ class _ModeSwitch extends ConsumerWidget {
           avatar: const Icon(Icons.title_rounded, size: 18),
           selected: !plot,
           showCheckmark: false,
-          onSelected: (_) => ctrl.setPlotMode(false),
+          onSelected: (_) => ctrl.setPlotMode(false, byUser: true),
         ),
         const SizedBox(width: MfSpace.sm),
         ChoiceChip(
@@ -531,7 +533,7 @@ class _ModeSwitch extends ConsumerWidget {
           avatar: const Icon(Icons.auto_awesome_rounded, size: 18),
           selected: plot,
           showCheckmark: false,
-          onSelected: (_) => ctrl.setPlotMode(true),
+          onSelected: (_) => ctrl.setPlotMode(true, byUser: true),
         ),
       ]),
     );

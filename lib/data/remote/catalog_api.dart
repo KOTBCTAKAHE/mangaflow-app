@@ -101,6 +101,17 @@ class CatalogApi {
         );
       });
 
+  /// One title, every source: the chapters of all sources that have it, merged by number.
+  Future<TitleData> merged(String sourceId, String mangaId) =>
+      client.get('/manga/$sourceId/$mangaId/merged', parse: (d) {
+        final m = (d as Map).cast<String, dynamic>();
+        return TitleData(
+          manga: MangaDetails.fromJson((m['manga'] as Map).cast()),
+          chapters: [for (final c in m['chapters'] as List) Chapter.fromJson((c as Map).cast())],
+          sources: [for (final s in (m['sources'] as List?) ?? const []) LinkedSource.fromJson((s as Map).cast())],
+        );
+      });
+
   Future<List<PageRef>> pages(String sourceId, String chapterId, {int? width}) =>
       client.get('/chapters/$sourceId/$chapterId/pages', parse: (d) {
         final m = (d as Map).cast<String, dynamic>();

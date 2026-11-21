@@ -144,6 +144,9 @@ class _Body extends ConsumerWidget {
           child: TitleSocialPanel(manga: m),
         ),
       ),
+    ];
+    // 3.0: chapters right after the description; other sources and similar titles below them
+    final extras = <Widget>[
       SliverToBoxAdapter(
         child: OtherSourcesPanel(
           k: k,
@@ -161,6 +164,7 @@ class _Body extends ConsumerWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Главы', style: context.text.titleLarge),
                 Text('${data.chapters.length} · прочитано $readCount', style: context.text.bodySmall),
+                if (data.isMerged) _MergedNote(data: data),
               ]),
             ),
             IconButton(
@@ -233,25 +237,30 @@ class _Body extends ConsumerWidget {
             );
           },
         ),
-      SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120))),
     ];
     // Tablet: details on the left, chapters on the right.
     if (MediaQuery.sizeOf(context).width >= 900) {
       return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SizedBox(
           width: 440,
-          child: CustomScrollView(slivers: [...top, SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120)))]),
+          child: CustomScrollView(slivers: [...top, ...extras, SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120)))]),
         ),
         const VerticalDivider(width: 1),
         Expanded(
           child: CustomScrollView(slivers: [
             SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + MfSpace.md)),
             ...chapterSlivers,
+            SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120))),
           ]),
         ),
       ]);
     }
-    return CustomScrollView(slivers: [...top, ...chapterSlivers]);
+    return CustomScrollView(slivers: [
+      ...top,
+      ...chapterSlivers,
+      ...extras,
+      SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120))),
+    ]);
   }
 }
 
@@ -583,7 +592,7 @@ class _InfoState extends State<_Info> {
               alignment: Alignment.topCenter,
               child: Text(
                 m.description,
-                maxLines: _expanded ? null : 4,
+                maxLines: _expanded ? null : 3,
                 overflow: _expanded ? TextOverflow.visible : TextOverflow.fade,
                 style: context.text.bodyMedium?.copyWith(color: context.colors.onSurfaceVariant),
               ),
@@ -621,6 +630,31 @@ class _Meta extends StatelessWidget {
       );
 }
 
+/// «Главы из 3 источников · +5 с ReManga»: the list is merged from every site that has the title.
+class _MergedNote extends StatelessWidget {
+  const _MergedNote({required this.data});
+  final TitleData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final added = [for (final s in data.sources.skip(1)) if (s.added > 0) s];
+    final text = added.isEmpty
+        ? 'Сверено с ${data.sources.length - 1} ${data.sources.length - 1 == 1 ? 'источником' : 'источниками'} — у этого сайта все главы'
+        : 'Главы из ${added.length + 1} источников: ${[for (final s in added) '+${s.added} с ${s.sourceName}'].join(', ')}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(children: [
+        Icon(Icons.merge_type_rounded, size: 14, color: context.colors.primary),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: context.text.bodySmall?.copyWith(color: context.colors.primary)),
+        ),
+      ]),
+    );
+  }
+}
+
 class _ChapterTile extends StatelessWidget {
   const _ChapterTile({
     required this.chapter,
@@ -652,6 +686,8 @@ class _ChapterTile extends StatelessWidget {
     final inProgress = progress != null && !read && progress!.pageIndex > 0;
     final muted = read ? context.textTertiary : null;
     final sub = [
+      // one title, every source: where a chapter the title's own site lacks comes from
+      if (chapter.isForeign && chapter.sourceName != null) '↗ ${chapter.sourceName}',
       if (chapter.uploadedAt != null) formatDate(chapter.uploadedAt!),
       if (chapter.scanlator != null) chapter.scanlator!,
       if (inProgress) 'стр. ${progress!.pageIndex + 1}${progress!.pageCount > 0 ? ' из ${progress!.pageCount}' : ''}',

@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangaflow/core/network/api_client.dart';
 import 'package:mangaflow/data/models/library.dart';
+import 'package:mangaflow/data/models/manga.dart';
 import 'package:mangaflow/data/models/settings.dart';
 import 'package:mangaflow/data/remote/discover_api.dart';
 import 'package:mangaflow/features/security/app_lock.dart';
@@ -62,6 +63,26 @@ LibraryEntry _entry(String title, LibraryStatus status, {bool fav = false}) => L
     );
 
 void main() {
+  test('merged chapters keep their source and fallbacks through the title cache', () {
+    final c = Chapter.fromJson({
+      'id': '@remanga:abc',
+      'title': 'Глава 12',
+      'number': 12,
+      'source_name': 'ReManga',
+      'alts': [
+        {'source_id': 'senkuro', 'chapter_id': 'x1'},
+      ],
+    });
+    expect(c.isForeign, isTrue);
+    final back = Chapter.fromJson(c.toJson());
+    expect(back.sourceName, 'ReManga');
+    expect(back.alts.single.sourceId, 'senkuro');
+    expect(back.alts.single.chapterId, 'x1');
+    final plain = Chapter.fromJson(const {'id': 'q', 'title': 't'});
+    expect(plain.isForeign, isFalse);
+    expect(plain.toJson().containsKey('alts'), isFalse);
+  });
+
   late _Server server;
   late DiscoverApi api;
 

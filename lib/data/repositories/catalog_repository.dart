@@ -30,6 +30,30 @@ class CatalogRepository {
 
   List<SourceInfo>? _sources;
 
+  /// `source/chapter` → the same chapter on other sources (from merged titles).
+  final _alts = <String, List<ChapterAlt>>{};
+
+  void _remember(String sourceId, TitleData d) {
+    for (final c in d.chapters) {
+      if (c.alts.isNotEmpty) _alts['$sourceId/${c.id}'] = c.alts;
+    }
+  }
+
+  /// One title, every source: chapters the title's own source lacks come from the others.
+  /// Null when switched off, offline or nothing to add; the result is cached like [title].
+  Future<TitleData?> merged(String sourceId, String mangaId) async {
+    if (!settings().mergeSources || sourceId == 'local') return null;
+    try {
+      final d = await api.merged(sourceId, mangaId);
+      if (d.chapters.isEmpty) return null;
+      await titleCache.put(d);
+      _remember(sourceId, d);
+      return d;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<SourceInfo>> sources({bool refresh = false}) async {
     if (_sources != null && !refresh) return _sources!;
     try {
@@ -101,12 +125,25 @@ class CatalogRepository {
     if (!refresh) {
       final cached = await titleCache.get(sourceId, mangaId);
       if (cached != null && DateTime.now().toUtc().difference(cached.$2) < AppConfig.titleCacheTtl) {
+        _remember(sourceId, cached.$1);
         return cached.$1;
       }
     }
     try {
-      final data = await api.title(sourceId, mangaId, refresh: refresh);
+      var data = await api.title(sourceId, mangaId, refresh: refresh);
+      // keep the chapters other sources added last time until the merged list is fetched again
+      final prev = settings().mergeSources ? (await titleCache.get(sourceId, mangaId))?.$1 : null;
+      if (prev != null) {
+        final have = {for (final c in data.chapters) c.number};
+        final keep = [for (final c in prev.chapters) if (c.isForeign && c.number != null && !have.contains(c.number)) c];
+        if (keep.isNotEmpty) {
+          final all = [...data.chapters, ...keep];
+          final numbered = all.where((c) => c.number != null).toList()..sort((a, b) => b.number!.compareTo(a.number!));
+          data = TitleData(manga: data.manga, chapters: [...numbered, ...all.where((c) => c.number == null)]);
+        }
+      }
       await titleCache.put(data);
+      _remember(sourceId, data);
       return data;
     } on ApiException {
       final cached = await titleCache.get(sourceId, mangaId);
@@ -118,7 +155,24 @@ class CatalogRepository {
   /// Local files for downloaded chapters, otherwise signed URLs from the server.
   Future<List<PageRef>> pages(String sourceId, String chapterId) async {
     final local = await downloads.localPages(sourceId, chapterId);
-    final pages = local ?? await api.pages(sourceId, chapterId, width: effectivePageWidth(settings()));
+    final pages = local ?? await _remotePages(sourceId, chapterId);
     return [for (final p in pages) p.withKey('$sourceId/$chapterId/${p.index}')];
+  }
+
+  /// The chapter's own source first; when that site fails, the same chapter elsewhere.
+  Future<List<PageRef>> _remotePages(String sourceId, String chapterId) async {
+    final width = effectivePageWidth(settings());
+    try {
+      return await api.pages(sourceId, chapterId, width: width);
+    } catch (e) {
+      final alts = _alts['$sourceId/$chapterId'] ?? const <ChapterAlt>[];
+      if (alts.isEmpty) rethrow;
+      for (final a in alts) {
+        try {
+          return await api.pages(a.sourceId, a.chapterId, width: width);
+        } catch (_) {}
+      }
+      rethrow;
+    }
   }
 }

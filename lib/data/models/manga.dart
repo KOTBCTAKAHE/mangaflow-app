@@ -190,14 +190,25 @@ class Chapter {
     this.volume,
     this.uploadedAt,
     this.scanlator,
+    this.sourceName,
+    this.alts = const [],
   });
 
+  /// `@<source>:<id>` for a chapter that only another source has (one title, every source).
   final String id;
   final String title;
   final double? number;
   final String? volume;
   final DateTime? uploadedAt;
   final String? scanlator;
+
+  /// Merged titles: the site the chapter is read from.
+  final String? sourceName;
+
+  /// The same chapter on other sources: read from there when this one fails.
+  final List<ChapterAlt> alts;
+
+  bool get isForeign => id.startsWith('@');
 
   factory Chapter.fromJson(Map<String, dynamic> j) => Chapter(
         id: j['id'] as String,
@@ -206,6 +217,11 @@ class Chapter {
         volume: j['volume'] as String?,
         uploadedAt: DateTime.tryParse(j['uploaded_at'] as String? ?? ''),
         scanlator: j['scanlator'] as String?,
+        sourceName: j['source_name'] as String?,
+        alts: [
+          for (final a in (j['alts'] as List?) ?? const [])
+            ChapterAlt((a as Map)['source_id'] as String, a['chapter_id'] as String),
+        ],
       );
 
   Map<String, dynamic> toJson() => {
@@ -215,7 +231,39 @@ class Chapter {
         'volume': volume,
         'uploaded_at': uploadedAt?.toIso8601String(),
         'scanlator': scanlator,
+        if (sourceName != null) 'source_name': sourceName,
+        if (alts.isNotEmpty) 'alts': [for (final a in alts) {'source_id': a.sourceId, 'chapter_id': a.chapterId}],
       };
+}
+
+/// The same chapter on another source.
+class ChapterAlt {
+  const ChapterAlt(this.sourceId, this.chapterId);
+  final String sourceId;
+  final String chapterId;
+}
+
+/// A source that has the title too (merged titles).
+class LinkedSource {
+  const LinkedSource({required this.sourceId, required this.sourceName, required this.mangaId,
+      required this.chaptersCount, this.latest, this.added = 0});
+  final String sourceId;
+  final String sourceName;
+  final String mangaId;
+  final int chaptersCount;
+  final double? latest;
+
+  /// Chapters this source added that the title's own source does not have.
+  final int added;
+
+  factory LinkedSource.fromJson(Map<String, dynamic> j) => LinkedSource(
+        sourceId: j['source_id'] as String,
+        sourceName: j['source_name'] as String? ?? j['source_id'] as String,
+        mangaId: j['manga_id'] as String,
+        chaptersCount: (j['chapters_count'] as num?)?.toInt() ?? 0,
+        latest: (j['latest'] as num?)?.toDouble(),
+        added: (j['added'] as num?)?.toInt() ?? 0,
+      );
 }
 
 class MangaDetails {
@@ -291,8 +339,13 @@ class MangaDetails {
 }
 
 class TitleData {
-  const TitleData({required this.manga, required this.chapters, this.fromCache = false});
+  const TitleData({required this.manga, required this.chapters, this.fromCache = false, this.sources = const []});
   final MangaDetails manga;
+
+  /// Merged titles: every source the chapters come from (the title's own first).
+  final List<LinkedSource> sources;
+
+  bool get isMerged => sources.length > 1;
 
   /// Newest first (as returned by sources).
   final List<Chapter> chapters;

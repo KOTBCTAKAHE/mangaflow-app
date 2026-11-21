@@ -27,8 +27,26 @@ import '../update_dialog.dart';
 import 'proxy_screen.dart';
 import '../../widgets/beta_badge.dart';
 
+/// Settings in five sections (3.0): a short hub, each section on its own page.
+enum SettingsSection {
+  reading('Чтение', 'Режимы, по кадрам, поля, улучшение ИИ', Icons.auto_stories_outlined, ['Читалка', 'Улучшение качества страниц (ИИ)']),
+  look('Внешний вид', 'Тема, цвета Material You, виджеты', Icons.palette_outlined, ['Внешний вид', 'Виджеты на рабочий стол']),
+  downloads('Загрузки и контент', 'Уведомления, загрузки, источники, 18+', Icons.download_outlined, ['Уведомления и загрузки', 'Контент']),
+  account('Аккаунт и данные', 'Вход, резервная копия, приватность', Icons.person_outline_rounded, ['Аккаунт', 'Данные', 'Приватность']),
+  app('Подключение и приложение', 'Прокси, обновления, о приложении', Icons.settings_suggest_outlined, ['Подключение', 'Приложение']);
+
+  const SettingsSection(this.title, this.summary, this.icon, this.headers);
+  final String title;
+  final String summary;
+  final IconData icon;
+  final List<String> headers;
+}
+
 class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.section});
+
+  /// null: the hub with the five sections.
+  final SettingsSection? section;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,9 +54,7 @@ class SettingsScreen extends ConsumerWidget {
     final ctrl = ref.read(settingsProvider.notifier);
     final signedIn = ref.watch(authProvider) is SignedIn;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Настройки')),
-      body: ListView(padding: const EdgeInsets.only(bottom: MfSpace.huge), children: [
+    final all = <Widget>[
         const _Header('Подключение'),
         ListTile(
           leading: const Icon(Icons.vpn_lock_outlined),
@@ -116,6 +132,13 @@ class SettingsScreen extends ConsumerWidget {
           subtitle: const Text('Без Wi-Fi страницы грузятся в 720px — в ~2–3 раза меньше трафика. Улучшение ИИ на телефоне возвращает чёткость.'),
           value: s.mobileDataSaver,
           onChanged: (v) => ctrl.update((x) => x.copyWith(mobileDataSaver: v)),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.merge_type_rounded),
+          title: const Text('Один тайтл — все источники'),
+          subtitle: const Text('Главы, которых нет на сайте тайтла, подтягиваются с других; если сайт лежит, глава откроется с другого'),
+          value: s.mergeSources,
+          onChanged: (v) => ctrl.update((x) => x.copyWith(mergeSources: v)),
         ),
         SwitchListTile(
           secondary: const Icon(Icons.crop_rounded),
@@ -339,7 +362,54 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
         ],
-      ]),
+    ];
+    return _layout(context, all);
+  }
+
+  Widget _layout(BuildContext context, List<Widget> all) {
+    final sec = section;
+    if (sec == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Настройки')),
+        body: ListView(padding: const EdgeInsets.fromLTRB(MfSpace.md, MfSpace.sm, MfSpace.md, MfSpace.huge), children: [
+          for (final x in SettingsSection.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: MfSpace.sm),
+              child: Material(
+                color: context.colors.surfaceContainer,
+                borderRadius: BorderRadius.circular(MfRadius.lg),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: MfSpace.lg, vertical: MfSpace.xs),
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: context.colors.secondaryContainer,
+                      borderRadius: BorderRadius.circular(MfRadius.md),
+                    ),
+                    child: Icon(x.icon, color: context.colors.onSecondaryContainer),
+                  ),
+                  title: Text(x.title),
+                  subtitle: Text(x.summary),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(section: x))),
+                ),
+              ),
+            ),
+        ]),
+      );
+    }
+    // the section's part of the full list: from each of its headers to the next header
+    final mine = <Widget>[];
+    var on = false;
+    for (final w in all) {
+      if (w is _Header) on = sec.headers.contains(w.text);
+      if (on) mine.add(w);
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(sec.title)),
+      body: ListView(padding: const EdgeInsets.only(bottom: MfSpace.huge), children: mine),
     );
   }
 

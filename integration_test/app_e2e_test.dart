@@ -82,10 +82,9 @@ void main() {
     expect(find.textContaining('не загрузилась'), findsNothing);
     await shot(tester, '03_reader_vertical_ui');
 
-    // hide UI, scroll through the chapter
+    // the controls hide by themselves (3.0); scroll through the chapter
     final center = tester.getCenter(find.byType(Scaffold).last);
-    await tester.tapAt(center);
-    await settle(tester, 600);
+    await settle(tester, 3000);
     for (var i = 0; i < 6; i++) {
       await tester.fling(find.byType(CustomScrollView).last, const Offset(0, -900), 2500);
       await settle(tester, 700);

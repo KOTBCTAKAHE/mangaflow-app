@@ -112,7 +112,11 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> init() async {
     WidgetsBinding.instance.addObserver(this);
     try {
-      final data = await catalog.title(sourceId, mangaId);
+      var data = await catalog.title(sourceId, mangaId);
+      if (!data.chapters.any((c) => c.id == startChapterId) || data.chapters.isEmpty) {
+        // a chapter another source added (opened from updates, history, another device)
+        data = await catalog.merged(sourceId, mangaId) ?? data;
+      }
       manga = data.manga;
       ordered = data.chapters.reversed.toList();
       final idx = ordered.indexWhere((c) => c.id == startChapterId);
@@ -171,6 +175,7 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
       loading = false;
       _notify();
       _scheduleSave();
+      _autoHide();
     } catch (e) {
       error = e;
       loading = false;
@@ -306,8 +311,22 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void toggleUi([bool? visible]) {
+    _hideTimer?.cancel();
     uiVisible = visible ?? !uiVisible;
     _notify();
+  }
+
+  Timer? _hideTimer;
+
+  /// 3.0: the controls show the chapter name for a moment, then step aside for the page.
+  void _autoHide() {
+    _hideTimer?.cancel();
+    if (!uiVisible) return;
+    _hideTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (_disposed || !uiVisible) return;
+      uiVisible = false;
+      _notify();
+    });
   }
 
   /// Preload the next [n] pages (and the first pages of the next chapter).
@@ -407,6 +426,7 @@ class ReaderController extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     _disposed = true;
     _saveTimer?.cancel();
+    _hideTimer?.cancel();
     unawaited(_steps.close());
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
