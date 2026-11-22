@@ -80,6 +80,7 @@ abstract final class AutoDownload {
         try {
           final t = await api.title(e.sourceId, e.mangaId);
           await cache.put(t);
+          if (t.manga.kind == MangaKind.novel) continue; // ранобэ: no pages to download
           final done = (await progress.forManga(e.sourceId, e.mangaId)).values.where((p) => p.completed);
           double? lastRead = e.lastChapterNumber;
           for (final p in done) {

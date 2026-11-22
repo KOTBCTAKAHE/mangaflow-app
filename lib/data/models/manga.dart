@@ -6,6 +6,7 @@ enum MangaKind {
   manhwa('manhwa', 'Манхва'),
   manhua('manhua', 'Маньхуа'),
   comic('comic', 'Комикс'),
+  novel('novel', 'Ранобэ'),
   other('other', 'Другое');
 
   const MangaKind(this.api, this.label);
@@ -95,11 +96,16 @@ class SourceInfo {
     this.caps = const SourceCaps(),
     this.genres = const [],
     this.lang = 'ru',
+    this.content = 'images',
   });
 
   final String id;
   final String name;
   final String baseUrl;
+
+  /// `images` — chapters are pages; `text` — ранобэ.
+  final String content;
+  bool get isText => content == 'text';
 
   /// Translation language of the catalog (`ru`, `en`, …).
   final String lang;
@@ -120,7 +126,57 @@ class SourceInfo {
         notes: j['notes'] as String? ?? '',
         caps: SourceCaps.fromJson((j['capabilities'] as Map?)?.cast<String, dynamic>() ?? const {}),
         genres: [for (final g in (j['genres'] as List? ?? const [])) Genre.fromJson((g as Map).cast())],
+        content: j['content'] as String? ?? 'images',
       );
+}
+
+/// A run of text inside a paragraph (ранобэ).
+class NovelSpan {
+  const NovelSpan(this.text, {this.italic = false, this.bold = false});
+  final String text;
+  final bool italic;
+  final bool bold;
+
+  factory NovelSpan.fromJson(Map<String, dynamic> j) =>
+      NovelSpan(j['t'] as String? ?? '', italic: j['i'] == true, bold: j['b'] == true);
+  Map<String, dynamic> toJson() => {'t': text, if (italic) 'i': true, if (bold) 'b': true};
+}
+
+/// One block of a text chapter: `p` paragraph, `h` heading, `quote`, `hr` scene break,
+/// `img` illustration, `gap` an empty line the author left.
+class NovelBlock {
+  const NovelBlock(this.type, {this.spans = const [], this.url});
+  final String type;
+  final List<NovelSpan> spans;
+  final String? url;
+
+  String get plain => spans.map((s) => s.text).join();
+
+  factory NovelBlock.fromJson(Map<String, dynamic> j) => NovelBlock(
+        j['type'] as String? ?? 'p',
+        spans: [for (final s in (j['spans'] as List?) ?? const []) NovelSpan.fromJson((s as Map).cast())],
+        url: j['url'] as String?,
+      );
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        if (spans.isNotEmpty) 'spans': [for (final s in spans) s.toJson()],
+        if (url != null) 'url': url,
+      };
+}
+
+/// A chapter of ранобэ.
+class ChapterText {
+  const ChapterText({required this.title, required this.blocks});
+  final String title;
+  final List<NovelBlock> blocks;
+
+  int get words => blocks.fold(0, (n, b) => n + b.plain.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length);
+
+  factory ChapterText.fromJson(Map<String, dynamic> j) => ChapterText(
+        title: j['title'] as String? ?? '',
+        blocks: [for (final b in (j['blocks'] as List?) ?? const []) NovelBlock.fromJson((b as Map).cast())],
+      );
+  Map<String, dynamic> toJson() => {'title': title, 'blocks': [for (final b in blocks) b.toJson()]};
 }
 
 /// Lightweight card used in carousels, grids and search results.

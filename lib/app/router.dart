@@ -16,7 +16,7 @@ import '../features/profile/settings_screen.dart';
 import '../features/profile/sources_screen.dart';
 import '../features/profile/stats_screen.dart';
 import '../features/profile/updates_screen.dart';
-import '../features/reader/reader_screen.dart';
+import '../features/reader/chapter_screen.dart';
 import '../features/shell/app_shell.dart';
 import '../features/social/lookup_screen.dart';
 import '../features/social/mihon_import_screen.dart';
@@ -70,7 +70,7 @@ GoRouter buildRouter() => GoRouter(
           parentNavigatorKey: rootNavigatorKey,
           pageBuilder: (_, s) => _fade(
             s,
-            ReaderScreen(
+            ChapterScreen(
               sourceId: s.pathParameters['source']!,
               mangaId: s.pathParameters['manga']!,
               chapterId: s.pathParameters['chapter']!,

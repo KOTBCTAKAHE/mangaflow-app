@@ -94,6 +94,7 @@ class AppSettings {
     this.defaultReadingMode,
     this.readerBackground = ReaderBackground.black,
     this.keepScreenOn = true,
+    this.novel = const NovelPrefs(),
     this.tapZones = true,
     this.preloadPages = 4,
     this.autoNextChapter = true,
@@ -141,6 +142,9 @@ class AppSettings {
   final ReadingMode? defaultReadingMode;
   final ReaderBackground readerBackground;
   final bool keepScreenOn;
+
+  /// Ранобэ: how text reads (synced with the account).
+  final NovelPrefs novel;
   final bool tapZones;
   final int preloadPages;
   final bool autoNextChapter;
@@ -216,6 +220,7 @@ class AppSettings {
     ReadingMode? Function()? defaultReadingMode,
     ReaderBackground? readerBackground,
     bool? keepScreenOn,
+    NovelPrefs? novel,
     bool? tapZones,
     int? preloadPages,
     bool? autoNextChapter,
@@ -258,6 +263,7 @@ class AppSettings {
         defaultReadingMode: defaultReadingMode != null ? defaultReadingMode() : this.defaultReadingMode,
         readerBackground: readerBackground ?? this.readerBackground,
         keepScreenOn: keepScreenOn ?? this.keepScreenOn,
+        novel: novel ?? this.novel,
         tapZones: tapZones ?? this.tapZones,
         preloadPages: preloadPages ?? this.preloadPages,
         autoNextChapter: autoNextChapter ?? this.autoNextChapter,
@@ -301,6 +307,7 @@ class AppSettings {
         'default_reading_mode': defaultReadingMode?.api,
         'reader_background': readerBackground.api,
         'keep_screen_on': keepScreenOn,
+        'novel': novel.toJson(),
         'tap_zones': tapZones,
         'preload_pages': preloadPages,
         'auto_next_chapter': autoNextChapter,
@@ -354,6 +361,7 @@ class AppSettings {
       defaultReadingMode: rm == null ? null : ReadingMode.parse(rm),
       readerBackground: ReaderBackground.parse(j['reader_background'] as String?),
       keepScreenOn: j['keep_screen_on'] as bool? ?? true,
+      novel: NovelPrefs.fromJson(j['novel']),
       tapZones: j['tap_zones'] as bool? ?? true,
       preloadPages: (j['preload_pages'] as num?)?.toInt().clamp(1, 10) ?? 4,
       autoNextChapter: j['auto_next_chapter'] as bool? ?? true,
@@ -403,3 +411,103 @@ class AppSettings {
     return AppSettings.fromJson(merged, fallbackUrl: apiBaseUrl);
   }
 }
+
+enum NovelFont {
+  serif('serif', 'С засечками', 'serif'),
+  sans('sans', 'Без засечек', 'sans-serif'),
+  app('app', 'Manrope', 'Manrope');
+
+  const NovelFont(this.api, this.label, this.family);
+  final String api;
+  final String label;
+  final String family;
+
+  static NovelFont parse(String? v) => values.firstWhere((f) => f.api == v, orElse: () => NovelFont.serif);
+}
+
+enum NovelTheme {
+  night('night', 'Ночь', Color(0xFF16151A), Color(0xFFD9D4CC)),
+  black('black', 'Чёрная', Color(0xFF000000), Color(0xFFB9B4AC)),
+  sepia('sepia', 'Сепия', Color(0xFFF3E8D2), Color(0xFF4A3B2A)),
+  day('day', 'День', Color(0xFFFBFAF7), Color(0xFF1E1D1B));
+
+  const NovelTheme(this.api, this.label, this.background, this.text);
+  final String api;
+  final String label;
+  final Color background;
+  final Color text;
+  bool get isDark => background.computeLuminance() < 0.2;
+
+  static NovelTheme parse(String? v) => values.firstWhere((t) => t.api == v, orElse: () => NovelTheme.night);
+}
+
+/// Ранобэ reader: typography and page colours.
+@immutable
+class NovelPrefs {
+  const NovelPrefs({
+    this.fontSize = 19,
+    this.lineHeight = 1.65,
+    this.font = NovelFont.serif,
+    this.theme = NovelTheme.night,
+    this.margin = 22,
+    this.justify = true,
+    this.indent = true,
+  });
+
+  final double fontSize;
+  final double lineHeight;
+  final NovelFont font;
+  final NovelTheme theme;
+  final double margin;
+  final bool justify;
+  final bool indent;
+
+  NovelPrefs copyWith({double? fontSize, double? lineHeight, NovelFont? font, NovelTheme? theme, double? margin, bool? justify, bool? indent}) =>
+      NovelPrefs(
+        fontSize: fontSize ?? this.fontSize,
+        lineHeight: lineHeight ?? this.lineHeight,
+        font: font ?? this.font,
+        theme: theme ?? this.theme,
+        margin: margin ?? this.margin,
+        justify: justify ?? this.justify,
+        indent: indent ?? this.indent,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'font_size': fontSize,
+        'line_height': lineHeight,
+        'font': font.api,
+        'theme': theme.api,
+        'margin': margin,
+        'justify': justify,
+        'indent': indent,
+      };
+
+  factory NovelPrefs.fromJson(Object? j) {
+    if (j is! Map) return const NovelPrefs();
+    return NovelPrefs(
+      fontSize: ((j['font_size'] as num?)?.toDouble() ?? 19).clamp(13, 32).toDouble(),
+      lineHeight: ((j['line_height'] as num?)?.toDouble() ?? 1.65).clamp(1.2, 2.2).toDouble(),
+      font: NovelFont.parse(j['font'] as String?),
+      theme: NovelTheme.parse(j['theme'] as String?),
+      margin: ((j['margin'] as num?)?.toDouble() ?? 22).clamp(8, 48).toDouble(),
+      justify: j['justify'] as bool? ?? true,
+      indent: j['indent'] as bool? ?? true,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is NovelPrefs &&
+      other.fontSize == fontSize &&
+      other.lineHeight == lineHeight &&
+      other.font == font &&
+      other.theme == theme &&
+      other.margin == margin &&
+      other.justify == justify &&
+      other.indent == indent;
+
+  @override
+  int get hashCode => Object.hash(fontSize, lineHeight, font, theme, margin, justify, indent);
+}
+

@@ -63,6 +63,31 @@ LibraryEntry _entry(String title, LibraryStatus status, {bool fav = false}) => L
     );
 
 void main() {
+  test('ранобэ: text chapters and reading prefs survive JSON', () {
+    final t = ChapterText.fromJson({
+      'title': 'Глава 1',
+      'blocks': [
+        {'type': 'h', 'spans': [{'t': 'I. За решёткой'}]},
+        {'type': 'p', 'spans': [{'t': 'Огонь ', 'i': true}, {'t': 'не умирает.', 'b': true}]},
+        {'type': 'hr'},
+        {'type': 'img', 'url': 'https://x/1.jpg'},
+      ],
+    });
+    expect(t.blocks.map((b) => b.type), ['h', 'p', 'hr', 'img']);
+    expect(t.blocks[1].spans.first.italic, isTrue);
+    expect(t.blocks[1].plain, 'Огонь не умирает.');
+    expect(t.words, 6);
+    final back = ChapterText.fromJson(t.toJson());
+    expect(back.blocks[3].url, 'https://x/1.jpg');
+    expect(back.blocks[1].spans.last.bold, isTrue);
+    expect(MangaKind.parse('novel'), MangaKind.novel);
+    const p = NovelPrefs(fontSize: 22, theme: NovelTheme.sepia, font: NovelFont.sans, justify: false);
+    expect(NovelPrefs.fromJson(p.toJson()), p);
+    expect(NovelPrefs.fromJson({'font_size': 99}).fontSize, 32, reason: 'clamped');
+    expect(NovelTheme.sepia.isDark, isFalse);
+    expect(NovelTheme.black.isDark, isTrue);
+  });
+
   test('merged chapters keep their source and fallbacks through the title cache', () {
     final c = Chapter.fromJson({
       'id': '@remanga:abc',

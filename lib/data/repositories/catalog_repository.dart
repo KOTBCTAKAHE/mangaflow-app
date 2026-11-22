@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/network/network_status.dart';
 import '../../core/config.dart';
@@ -39,6 +41,42 @@ class CatalogRepository {
     }
   }
 
+  /// Ранобэ sources (text chapters). RanobeLib is known up front so the reader opens instantly.
+  Future<bool> isTextSource(String sourceId) async {
+    if (sourceId == 'ranobelib') return true;
+    try {
+      return (await sources()).any((s) => s.id == sourceId && s.isText);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// A text chapter: from the network, kept on the phone so it opens offline next time.
+  Future<ChapterText> text(String sourceId, String chapterId, {bool cacheOnly = false}) async {
+    final file = await _textFile(sourceId, chapterId);
+    if (cacheOnly || await file.exists()) {
+      try {
+        return ChapterText.fromJson((jsonDecode(await file.readAsString()) as Map).cast());
+      } catch (_) {
+        if (cacheOnly) rethrow;
+      }
+    }
+    final t = await api.text(sourceId, chapterId);
+    try {
+      await file.parent.create(recursive: true);
+      await file.writeAsString(jsonEncode(t.toJson()));
+    } catch (_) {}
+    return t;
+  }
+
+  Future<bool> hasText(String sourceId, String chapterId) async => (await _textFile(sourceId, chapterId)).exists();
+
+  Future<File> _textFile(String sourceId, String chapterId) async {
+    final dir = await getApplicationSupportDirectory();
+    final safe = base64Url.encode(utf8.encode(chapterId)).replaceAll('=', '');
+    return File('${dir.path}/novels/$sourceId/$safe.json');
+  }
+
   /// One title, every source: chapters the title's own source lacks come from the others.
   /// Null when switched off, offline or nothing to add; the result is cached like [title].
   Future<TitleData?> merged(String sourceId, String mangaId) async {
@@ -66,6 +104,7 @@ class CatalogRepository {
             'base_url': s.baseUrl,
             'is_nsfw': s.isNsfw,
             'notes': s.notes,
+            'content': s.content,
             'capabilities': {
               'search': s.caps.search,
               'genre_filter': s.caps.genreFilter,

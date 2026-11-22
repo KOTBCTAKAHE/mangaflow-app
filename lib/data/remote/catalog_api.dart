@@ -112,6 +112,10 @@ class CatalogApi {
         );
       });
 
+  /// Ранобэ: the chapter as text blocks.
+  Future<ChapterText> text(String sourceId, String chapterId) => client.get('/chapters/$sourceId/$chapterId/text',
+      parse: (d) => ChapterText.fromJson((d as Map).cast<String, dynamic>()));
+
   Future<List<PageRef>> pages(String sourceId, String chapterId, {int? width}) =>
       client.get('/chapters/$sourceId/$chapterId/pages', parse: (d) {
         final m = (d as Map).cast<String, dynamic>();

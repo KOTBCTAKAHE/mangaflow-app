@@ -189,16 +189,23 @@ class _Body extends ConsumerWidget {
                     await reading.markChapters(m, data.chapters, read: false);
                   case 'download_unread':
                     final unread = [for (final c in data.chapters) if (!(progress[c.id]?.completed ?? false)) c];
-                    if (context.mounted) await startDownloads(context, ref, m, unread.reversed.toList());
+                    if (!context.mounted) break;
+                    if (m.kind == MangaKind.novel) {
+                      await saveNovelOffline(context, ref, m, unread.reversed.toList());
+                    } else {
+                      await startDownloads(context, ref, m, unread.reversed.toList());
+                    }
                   case 'delete_downloads':
                     await ref.read(downloadManagerProvider).deleteManga(m.sourceId, m.id);
                 }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'read_all', child: Text('Отметить все прочитанными')),
-                PopupMenuItem(value: 'unread_all', child: Text('Снять отметки')),
-                PopupMenuItem(value: 'download_unread', child: Text('Скачать непрочитанные')),
-                PopupMenuItem(value: 'delete_downloads', child: Text('Удалить загрузки')),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'read_all', child: Text('Отметить все прочитанными')),
+                const PopupMenuItem(value: 'unread_all', child: Text('Снять отметки')),
+                PopupMenuItem(
+                    value: 'download_unread',
+                    child: Text(m.kind == MangaKind.novel ? 'Сохранить непрочитанные для офлайна' : 'Скачать непрочитанные')),
+                if (m.kind != MangaKind.novel) const PopupMenuItem(value: 'delete_downloads', child: Text('Удалить загрузки')),
               ],
             ),
           ]),
@@ -229,6 +236,7 @@ class _Body extends ConsumerWidget {
                 HapticFeedback.selectionClick();
                 onSelect(c.id);
               },
+              canDownload: m.kind != MangaKind.novel, // ранобэ: texts are kept as you read
               onDownload: () => startDownloads(context, ref, m, [c]),
               onDeleteDownload: () => ref.read(downloadManagerProvider).delete(m.sourceId, c.id),
               onRetryDownload: () {
@@ -893,6 +901,7 @@ class _ChapterTile extends StatelessWidget {
     required this.selecting,
     required this.onTap,
     required this.onLongPress,
+    this.canDownload = true,
     required this.onDownload,
     required this.onDeleteDownload,
     required this.onRetryDownload,
@@ -905,6 +914,7 @@ class _ChapterTile extends StatelessWidget {
   final bool selecting;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final bool canDownload;
   final VoidCallback onDownload;
   final VoidCallback onDeleteDownload;
   final VoidCallback onRetryDownload;
@@ -956,7 +966,10 @@ class _ChapterTile extends StatelessWidget {
                     Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.labelMedium?.copyWith(color: muted)),
                 ]),
               ),
-              _DownloadButton(task: download, onDownload: onDownload, onDelete: onDeleteDownload, onRetry: onRetryDownload),
+              if (canDownload)
+                _DownloadButton(task: download, onDownload: onDownload, onDelete: onDeleteDownload, onRetry: onRetryDownload)
+              else
+                const SizedBox(width: MfSpace.md),
             ]),
           ),
         ),
@@ -1047,6 +1060,11 @@ class _SelectionBar extends ConsumerWidget {
           tooltip: 'Скачать',
           icon: const Icon(Icons.download_rounded),
           onPressed: () async {
+            if (data.manga.kind == MangaKind.novel) {
+              await saveNovelOffline(context, ref, data.manga, chapters.reversed.toList());
+              onDone();
+              return;
+            }
             await startDownloads(context, ref, data.manga, chapters.reversed.toList());
             onDone();
           },
@@ -1147,3 +1165,23 @@ class _TitleBookmarks extends ConsumerWidget {
     );
   }
 }
+
+/// Ранобэ: chapters are small texts — save them all for offline reading, with a progress note.
+Future<void> saveNovelOffline(BuildContext context, WidgetRef ref, MangaDetails m, List<Chapter> chapters) async {
+  if (chapters.isEmpty) return;
+  final catalog = ref.read(catalogRepositoryProvider);
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.showSnackBar(SnackBar(content: Text('Сохраняю ${chapters.length} глав для офлайна…')));
+  var ok = 0;
+  for (final c in chapters) {
+    try {
+      await catalog.text(m.sourceId, c.id);
+      ok++;
+    } catch (_) {}
+  }
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+        content: Text(ok == chapters.length ? 'Готово: $ok глав можно читать без интернета' : 'Сохранено $ok из ${chapters.length} глав')));
+}
+
