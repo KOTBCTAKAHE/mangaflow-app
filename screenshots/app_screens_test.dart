@@ -199,7 +199,7 @@ void main() {
   }
 
   Future<void> shot(WidgetTester tester, ProviderContainer c, Widget screen, String name,
-      {Future<void> Function()? before}) async {
+      {Future<void> Function()? before, bool drain = false}) async {
     const key = ValueKey('shot');
     await tester.pumpWidget(UncontrolledProviderScope(
       container: c,
@@ -215,9 +215,8 @@ void main() {
       await settle(tester);
     }
     await expectLater(find.byKey(key), matchesGoldenFile('out/$name.png'));
-    // let short-lived timers (the reader's auto-hiding controls) run out before the test ends
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 3));
+    // the reader's controls hide by themselves after 2.5 s: let that timer run out
+    if (drain) await tester.pump(const Duration(seconds: 3));
   }
 
   Widget tab(Widget body, int index) => Scaffold(
@@ -269,12 +268,12 @@ void main() {
 
   testWidgets('08 reader overlay', (tester) async {
     final c = await setup(tester, prefs: {'reader_hint_strip': true, 'reader_hint_paged': true});
-    await shot(tester, c, const ReaderScreen(sourceId: 'mangalib', mangaId: 'm0', chapterId: 'ch32'), '08_reader_overlay');
+    await shot(tester, c, const ReaderScreen(sourceId: 'mangalib', mangaId: 'm0', chapterId: 'ch32'), '08_reader_overlay', drain: true);
   });
 
   testWidgets('09 reader tap hint', (tester) async {
     final c = await setup(tester);
-    await shot(tester, c, const ReaderScreen(sourceId: 'mangalib', mangaId: 'm0', chapterId: 'ch32'), '09_reader_hint');
+    await shot(tester, c, const ReaderScreen(sourceId: 'mangalib', mangaId: 'm0', chapterId: 'ch32'), '09_reader_hint', drain: true);
   });
 
   testWidgets('10 settings', (tester) async {
@@ -284,7 +283,7 @@ void main() {
 
   testWidgets('11 accent violet home', (tester) async {
     final c = await setup(tester, prefs: {
-      'app_settings_v1': jsonEncode({'accent': 'violet', 'api_base_url': 'https://x'}),
+      'app_settings_v1': jsonEncode({'accent': 'violet', 'accent_v': 2, 'api_base_url': 'https://x'}),
     });
     MfColors.palette = AccentPalette.violet;
     addTearDown(() => MfColors.palette = AccentPalette.ember);
@@ -293,7 +292,7 @@ void main() {
 
   testWidgets('12 reader settings', (tester) async {
     final c = await setup(tester, prefs: {'reader_hint_strip': true, 'reader_hint_paged': true});
-    await shot(tester, c, const ReaderScreen(sourceId: 'mangalib', mangaId: 'm0', chapterId: 'ch32'), '12_reader_settings',
+    await shot(tester, c, const ReaderScreen(sourceId: 'mangalib', mangaId: 'm0', chapterId: 'ch32'), '12_reader_settings', drain: true,
         before: () async {
       await tester.tap(find.byIcon(Icons.tune_rounded));
     });
