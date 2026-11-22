@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -70,7 +71,7 @@ class _TitleScreenState extends ConsumerState<TitleScreen> {
     final tint = ref.watch(coverTintProvider(title.valueOrNull?.manga.coverUrl ?? '')).valueOrNull;
     final theme = Theme.of(context);
     return AnimatedTheme(
-      data: tint == null ? theme : tintedTheme(theme, tint),
+      data: tint == null ? theme : AppTheme.build(AppTheme.scheme(tint, theme.brightness, wallpaper: true)),
       duration: MfMotion.slow,
       child: PopScope(
       canPop: !_selecting,
@@ -133,7 +134,7 @@ class _Body extends ConsumerWidget {
     final readCount = data.chapters.where((c) => progress[c.id]?.completed ?? false).length;
 
     final top = <Widget>[
-      _Header(manga: m, fromCache: data.fromCache),
+      _Header(manga: m, fromCache: data.fromCache, chapters: data.chapters.length),
       if (data.chapters.isNotEmpty)
         SliverToBoxAdapter(child: _ProgressStrip(read: readCount, total: data.chapters.length)),
       SliverToBoxAdapter(child: _Info(manga: m)),
@@ -264,20 +265,26 @@ class _Body extends ConsumerWidget {
   }
 }
 
+/// The cover is the hero: the art fills the top of the page, the cover card floats over it in
+/// its own colour's glow, and the whole page takes its palette from the cover.
 class _Header extends StatelessWidget {
-  const _Header({required this.manga, required this.fromCache});
+  const _Header({required this.manga, required this.fromCache, required this.chapters});
   final MangaDetails manga;
   final bool fromCache;
+  final int chapters;
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
     final top = MediaQuery.paddingOf(context).top;
+    final expanded = (size.height * 0.7).clamp(500.0, 640.0) + top * 0.3;
     return SliverAppBar(
       pinned: true,
       stretch: true,
-      expandedHeight: 340 + top * 0.2,
+      expandedHeight: expanded,
       backgroundColor: context.colors.surface,
-      title: _CollapsedTitle(title: manga.title, expandedHeight: 340 + top * 0.2),
+      surfaceTintColor: Colors.transparent,
+      title: _CollapsedTitle(title: manga.title, expandedHeight: expanded),
       actions: [
         if (manga.webUrl.isNotEmpty)
           IconButton(
@@ -290,22 +297,21 @@ class _Header extends StatelessWidget {
           ),
       ],
       flexibleSpace: FlexibleSpaceBar(
-        stretchModes: const [StretchMode.zoomBackground],
+        stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
+        collapseMode: CollapseMode.parallax,
         background: Stack(fit: StackFit.expand, children: [
-          if (manga.coverUrl.isNotEmpty)
-            ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: TileMode.clamp),
-              child: Image(image: netImage(withWidth(manga.coverUrl, 160)), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
-            ),
+          _CoverBackdrop(url: manga.coverUrl),
+          // a soft glow of the cover's own colour behind the card
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(-0.7, 0.2),
-                radius: 1.3,
-                colors: [context.colors.primary.withValues(alpha: 0.30), Colors.transparent],
+                center: const Alignment(0, 0.05),
+                radius: 0.75,
+                colors: [context.colors.primary.withValues(alpha: 0.32), Colors.transparent],
               ),
             ),
           ),
+          // legible bar on top, the page's own colour at the bottom
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -313,11 +319,12 @@ class _Header extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   context.colors.surface.withValues(alpha: 0.55),
-                  context.colors.surface.withValues(alpha: 0.25),
-                  context.colors.surface.withValues(alpha: 0.85),
+                  context.colors.surface.withValues(alpha: 0.0),
+                  context.colors.surface.withValues(alpha: 0.35),
+                  context.colors.surface.withValues(alpha: 0.92),
                   context.colors.surface,
                 ],
-                stops: const [0.0, 0.3, 0.72, 0.95],
+                stops: const [0.0, 0.22, 0.5, 0.78, 1.0],
               ),
             ),
           ),
@@ -325,39 +332,235 @@ class _Header extends StatelessWidget {
             left: MfSpace.gutter,
             right: MfSpace.gutter,
             bottom: MfSpace.lg,
-            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              MangaCover(url: manga.coverUrl, width: 132, heroTag: 'title-${manga.sourceId}:${manga.id}'),
-              const SizedBox(width: MfSpace.lg),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  GestureDetector(
-                    onTap: () => showFullTitle(context, manga.title,
-                        subtitle: manga.authors.join(', '), altTitles: manga.altTitles),
-                    child: Text(manga.title,
-                        style: MfType.headline.copyWith(color: context.colors.onSurface, fontSize: 18, height: 1.25),
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  if (manga.authors.isNotEmpty) ...[
-                    const SizedBox(height: MfSpace.xs),
-                    Text(manga.authors.join(', '), style: context.text.bodySmall, maxLines: 2),
-                  ],
-                  const SizedBox(height: MfSpace.sm),
-                  Wrap(spacing: MfSpace.xs, runSpacing: MfSpace.xs, children: [
-                    Tag(manga.status.label, accent: manga.status == PubStatus.ongoing),
-                    if (manga.kind != null) Tag(manga.kind!.label),
-                    if (manga.ageRating != null) Tag(manga.ageRating!),
-                    Tag(manga.sourceName, icon: Icons.public_rounded),
-                    if (fromCache) const Tag('офлайн', icon: Icons.cloud_off_rounded),
-                  ]),
-                ]),
-              ),
-            ]),
+            child: _HeroContent(manga: manga, fromCache: fromCache, chapters: chapters),
           ),
         ]),
       ),
     );
   }
+}
+
+/// The cover art, big and slowly drifting (Ken Burns): sharp on top, melting into blur below.
+class _CoverBackdrop extends StatefulWidget {
+  const _CoverBackdrop({required this.url});
+  final String url;
+
+  @override
+  State<_CoverBackdrop> createState() => _CoverBackdropState();
+}
+
+class _CoverBackdropState extends State<_CoverBackdrop> with SingleTickerProviderStateMixin {
+  late final AnimationController _drift = AnimationController(vsync: this, duration: const Duration(seconds: 22));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (still) {
+      _drift.stop();
+    } else if (!_drift.isAnimating) {
+      _drift.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _drift.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.url.isEmpty) return ColoredBox(color: context.colors.surfaceContainer);
+    final width = (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context)).round();
+    final image = netImage(withWidth(widget.url, width.clamp(320, 900)));
+    Widget art(double sigma) {
+      final img = Image(image: image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox());
+      return sigma == 0
+          ? img
+          : ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp), child: img);
+    }
+
+    return AnimatedBuilder(
+      animation: _drift,
+      builder: (context, child) {
+        final t = Curves.easeInOutSine.transform(_drift.value);
+        return Transform.scale(
+          scale: 1.08 + 0.08 * t,
+          alignment: Alignment(-0.3 + 0.6 * t, -0.4),
+          child: child,
+        );
+      },
+      child: Stack(fit: StackFit.expand, children: [
+        art(26),
+        ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (r) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0.0, 0.35, 0.7],
+          ).createShader(r),
+          child: art(1.5),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Cover card, title, authors and facts — centred, shrinking away as the header collapses.
+class _HeroContent extends StatelessWidget {
+  const _HeroContent({required this.manga, required this.fromCache, required this.chapters});
+  final MangaDetails manga;
+  final bool fromCache;
+  final int chapters;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+    var t = 1.0; // 1 = fully open
+    if (settings != null && settings.maxExtent > settings.minExtent) {
+      t = ((settings.currentExtent - settings.minExtent) / (settings.maxExtent - settings.minExtent)).clamp(0.0, 1.0);
+    }
+    final glow = context.colors.primary;
+    final screen = MediaQuery.sizeOf(context);
+    final coverW = (screen.width * 0.46).clamp(130.0, math.min(200.0, screen.height * 0.26));
+    final heroTag = 'title-${manga.sourceId}:${manga.id}';
+    return Opacity(
+      opacity: Curves.easeIn.transform(((t - 0.25) / 0.75).clamp(0.0, 1.0)),
+      child: Transform.scale(
+        scale: 0.85 + 0.15 * t,
+        alignment: Alignment.bottomCenter,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          GestureDetector(
+            onTap: () => _openCover(context, manga.coverUrl, heroTag),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(MfRadius.xl),
+                boxShadow: [
+                  BoxShadow(color: glow.withValues(alpha: 0.55), blurRadius: 48, spreadRadius: -4, offset: const Offset(0, 22)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 24, offset: const Offset(0, 12)),
+                ],
+              ),
+              child: Stack(children: [
+                MangaCover(url: manga.coverUrl, width: coverW, radius: MfRadius.xl, heroTag: heroTag, shadow: false),
+                // a glossy edge, like a printed cover catching the light
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(MfRadius.xl),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: const Alignment(0.2, 0.2),
+                          colors: [Colors.white.withValues(alpha: 0.20), Colors.white.withValues(alpha: 0.0)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+          const SizedBox(height: MfSpace.xl),
+          GestureDetector(
+            onTap: () => showFullTitle(context, manga.title, subtitle: manga.authors.join(', '), altTitles: manga.altTitles),
+            child: Text(
+              manga.title,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: MfType.display.copyWith(color: context.colors.onSurface, fontSize: 26, height: 1.15),
+            ),
+          ),
+          if (manga.authors.isNotEmpty) ...[
+            const SizedBox(height: MfSpace.xs),
+            Text(manga.authors.join(', '),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.bodyMedium?.copyWith(color: context.colors.onSurfaceVariant)),
+          ],
+          const SizedBox(height: MfSpace.md),
+          Wrap(alignment: WrapAlignment.center, spacing: MfSpace.xs, runSpacing: MfSpace.xs, children: [
+            _StatusPill(status: manga.status),
+            if (manga.kind != null) Tag(manga.kind!.label),
+            if (chapters > 0) Tag('$chapters гл.', icon: Icons.menu_book_rounded),
+            if (manga.ageRating != null) Tag(manga.ageRating!),
+            Tag(manga.sourceName, icon: Icons.public_rounded),
+            if (fromCache) const Tag('офлайн', icon: Icons.cloud_off_rounded),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+/// «Онгоинг» with a live dot, «Завершён» calm.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+  final PubStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final ongoing = status == PubStatus.ongoing;
+    final color = ongoing ? const Color(0xFF4CD787) : context.colors.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(MfRadius.pill),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(status.label, style: MfType.caption.copyWith(color: context.colors.onSurface)),
+      ]),
+    );
+  }
+}
+
+/// Tap the cover: it flies out full screen; pinch to look closer, tap or swipe to close.
+void _openCover(BuildContext context, String url, Object heroTag) {
+  if (url.isEmpty) return;
+  HapticFeedback.lightImpact();
+  Navigator.of(context, rootNavigator: true).push(PageRouteBuilder<void>(
+    opaque: false,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    transitionDuration: MfMotion.slow,
+    reverseTransitionDuration: MfMotion.base,
+    pageBuilder: (context, anim, _) => FadeTransition(
+      opacity: anim,
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).pop(),
+        onVerticalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0).abs() > 300) Navigator.of(context).pop();
+        },
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: Center(
+              child: InteractiveViewer(
+                maxScale: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(MfSpace.xl),
+                  child: Hero(
+                    tag: heroTag,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(MfRadius.lg),
+                      child: Image(image: netImage(withWidth(url, 1000)), fit: BoxFit.contain),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ));
 }
 
 /// Frosted bottom bar: Read/Continue + library + favorite, always in reach of the thumb.
@@ -834,19 +1037,15 @@ class _TitleSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(),
         body: ListView(padding: const EdgeInsets.all(MfSpace.gutter), children: [
-          const Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Skeleton(width: 132, height: 188, radius: MfRadius.md),
-            SizedBox(width: MfSpace.lg),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Skeleton(height: 22),
-                SizedBox(height: MfSpace.sm),
-                Skeleton(width: 140, height: 14),
-                SizedBox(height: MfSpace.md),
-                Skeleton(width: 180, height: 24, radius: MfRadius.pill),
-              ]),
-            ),
-          ]),
+          // the same shape as the page about to appear: a big centred cover, title, chips
+          const SizedBox(height: MfSpace.xl),
+          const Center(child: Skeleton(width: 180, height: 257, radius: MfRadius.xl)),
+          const SizedBox(height: MfSpace.xl),
+          const Center(child: Skeleton(width: 220, height: 26)),
+          const SizedBox(height: MfSpace.sm),
+          const Center(child: Skeleton(width: 140, height: 14)),
+          const SizedBox(height: MfSpace.md),
+          const Center(child: Skeleton(width: 240, height: 26, radius: MfRadius.pill)),
           const SizedBox(height: MfSpace.xl),
           const Skeleton(height: MfSize.tap, radius: MfRadius.md),
           const SizedBox(height: MfSpace.xl),
