@@ -424,7 +424,7 @@ class _HeroContent extends StatelessWidget {
     }
     final glow = context.colors.primary;
     final screen = MediaQuery.sizeOf(context);
-    final coverW = (screen.width * 0.46).clamp(130.0, math.min(200.0, screen.height * 0.26));
+    final coverW = (screen.width * 0.46).clamp(130.0, math.min(200.0, screen.height * 0.26)).toDouble();
     final heroTag = 'title-${manga.sourceId}:${manga.id}';
     return Opacity(
       opacity: Curves.easeIn.transform(((t - 0.25) / 0.75).clamp(0.0, 1.0)),
