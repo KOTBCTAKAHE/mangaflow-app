@@ -71,7 +71,7 @@ class _TitleScreenState extends ConsumerState<TitleScreen> {
     final tint = ref.watch(coverTintProvider(title.valueOrNull?.manga.coverUrl ?? '')).valueOrNull;
     final theme = Theme.of(context);
     return AnimatedTheme(
-      data: tint == null ? theme : AppTheme.build(AppTheme.scheme(tint, theme.brightness, wallpaper: true)),
+      data: tint == null ? theme : _coverTheme(theme, tint),
       duration: MfMotion.slow,
       child: PopScope(
       canPop: !_selecting,
@@ -263,6 +263,32 @@ class _Body extends ConsumerWidget {
       SliverToBoxAdapter(child: SizedBox(height: bottomInset(context, 120))),
     ]);
   }
+}
+
+/// The whole page in the cover's palette: a tonal scheme seeded by the cover's colour.
+/// Built on top of the app theme (same text styles), so [AnimatedTheme] can blend the two.
+ThemeData _coverTheme(ThemeData base, Color tint) {
+  final t = AppTheme.build(AppTheme.scheme(tint, base.brightness, wallpaper: true));
+  return base.copyWith(
+    colorScheme: t.colorScheme,
+    scaffoldBackgroundColor: t.scaffoldBackgroundColor,
+    canvasColor: t.canvasColor,
+    appBarTheme: t.appBarTheme,
+    filledButtonTheme: t.filledButtonTheme,
+    outlinedButtonTheme: t.outlinedButtonTheme,
+    textButtonTheme: t.textButtonTheme,
+    chipTheme: t.chipTheme,
+    progressIndicatorTheme: t.progressIndicatorTheme,
+    switchTheme: t.switchTheme,
+    checkboxTheme: t.checkboxTheme,
+    bottomSheetTheme: t.bottomSheetTheme,
+    dialogTheme: t.dialogTheme,
+    snackBarTheme: t.snackBarTheme,
+    segmentedButtonTheme: t.segmentedButtonTheme,
+    dividerTheme: t.dividerTheme,
+    listTileTheme: t.listTileTheme,
+    iconTheme: t.iconTheme,
+  );
 }
 
 /// The cover is the hero: the art fills the top of the page, the cover card floats over it in

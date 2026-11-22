@@ -110,6 +110,9 @@ class FakeCatalog implements CatalogRepository {
       [for (var i = 0; i < 24; i++) PageRef(index: i, url: pageUrl(i))];
 
   @override
+  Future<TitleData?> merged(String sourceId, String mangaId) async => null;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -212,6 +215,9 @@ void main() {
       await settle(tester);
     }
     await expectLater(find.byKey(key), matchesGoldenFile('out/$name.png'));
+    // let short-lived timers (the reader's auto-hiding controls) run out before the test ends
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
   }
 
   Widget tab(Widget body, int index) => Scaffold(
